@@ -1,0 +1,28 @@
+[[Default
+  [[Assets Assets/Default [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
+   [Assets Assets/Default [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]
+   [Assets Assets/Default [cbm fbx gltf glb dae obj mtl glsl raw] [] [Render3d]]
+   [Assets Assets/Default [wav ogg mp3] [] [Audio]]
+   [Assets Assets/Default [nueffect nuscript csv] [] [Symbol]]
+   [Assets Assets/Default [nuentity nugroup tsx tmx atlas bin] [] []]]]
+ [Gui
+  [[Assets Assets/Gui [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
+   [Assets Assets/Gui [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]
+   [Assets Assets/Gui [cbm fbx gltf glb dae obj mtl glsl raw] [] [Render3d]]
+   [Assets Assets/Gui [wav ogg mp3] [] [Audio]]
+   [Assets Assets/Gui [nueffect nuscript csv] [] [Symbol]]
+   [Assets Assets/Gui [nuentity nugroup tsx tmx atlas bin] [] []]]]
+ [Gameplay
+  [[Assets Assets/Gameplay [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
+   [Assets Assets/Gameplay [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]
+   [Assets Assets/Gameplay [cbm fbx gltf glb dae obj mtl glsl raw] [] [Render3d]]
+   [Assets Assets/Gameplay [wav ogg mp3] [] [Audio]]
+   [Assets Assets/Gameplay [nueffect nuscript csv] [] [Symbol]]
+   [Assets Assets/Gameplay [nuentity nugroup tsx tmx atlas bin] [] []]]]
+ [Test
+  [[Assets Assets/Test [bmp psd ttf] [PsdToPng] [Render2d]]
+   [Assets Assets/Test [dds jpeg jpg tga tif tiff png] [ConvertToDds] [Render3d]]
+   [Assets Assets/Test [cbm dae fbx glsl mtl obj raw] [] [Render3d]]
+   [Assets Assets/Test [mp3 ogg wav] [] [Audio]]
+   [Assets Assets/Test [csv nueffect nuscript] [] [Symbol]]
+   [Assets Assets/Test [nuentity nugroup tmx tsx] [] []]]]]
