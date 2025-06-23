@@ -236,8 +236,8 @@ type GameQuest3DDispatcher () =
         do World.doLabel 
                "GameOverText" 
                [ Entity.Position .= v3 0.0f 0.0f 0.0f
-                 Entity.Text @= "Game Over"
-                 Entity.Size @= v3 200f 32f 0f ]
+                 Entity.Text .= "Game Over"
+                 Entity.Size .= v3 200f 32f 0f ]
                world
         do World.endGroup world
         do World.endScreen world
