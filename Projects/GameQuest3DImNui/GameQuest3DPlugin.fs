@@ -12,9 +12,9 @@ type MyGamePlugin () =
         Map.ofList
             [("Start",
                 fun world -> 
-                    let world = Game.SetIsTextCrawlScreen1InUse true world
-                    let world = Game.SetProgression Progression.initial world
-                    world)]
+                    do Game.SetIsTextCrawlScreen1InUse true world
+                    do Game.SetProgression Progression.initial world
+                    ())]
 
     // this specifies which packages are automatically loaded at game start-up.
     override this.InitialPackages =

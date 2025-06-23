@@ -42,35 +42,30 @@ type TextCrawlScreenDispatcher () =
 
     override this.Process (results, screen, world) =
         let text, labelSize = screen.GetTextCrawl world
-        let world = World.beginGroup "TextCrawlGroup" [] world
-        let world = 
-            World.doLabel 
-                "Text" 
-                [ Entity.Position .= v3 0.0f 0.0f 0.0f
-                  Entity.Text @= text
-                  Entity.Size @= labelSize ]
-                world
+        do World.beginGroup "TextCrawlGroup" [] world
+        do World.doLabel 
+              "Text" 
+              [ Entity.Position .= v3 0.0f 0.0f 0.0f
+                Entity.Text @= text
+                Entity.Size @= labelSize ]
+              world
 
-        let world = World.endGroup world
+        do World.endGroup world
 
-        let world =
-            if FQueue.contains Select results then
-                let gameTime = World.getGameTime world
-                let world = screen.SetSelectTime gameTime world
-                let world = screen.SetAwaitingProgression true world
-                world
-            else
-                world
+        if FQueue.contains Select results then
+            let gameTime = world.GameTime
+            do screen.SetSelectTime gameTime world
+            do screen.SetAwaitingProgression true world
 
         let isSelected = screen.GetSelected world
         let isAwaitingProgression = screen.GetAwaitingProgression world
 
         if (not isSelected) || (not isAwaitingProgression) then
-            world
+            ()
         else
 
         let selectTime = screen.GetSelectTime world
-        let time = World.getGameTime world
+        let time = world.GameTime
         
         let isTimerElapsed = time - selectTime > GameTime.ofSeconds 3.0f
         let keyPressed =
@@ -79,16 +74,15 @@ type TextCrawlScreenDispatcher () =
             || World.isKeyboardKeyPressed KeyboardKey.Enter world
 
         if (not isTimerElapsed && not keyPressed) then
-            world
+            ()
         else
 
-        let world = screen.SetAwaitingProgression false world
+        do screen.SetAwaitingProgression false world
         let progression = Game.GetProgression world
         let coreGameState = Progression.doTextCrawl progression
-        let world = Game.SetProgression coreGameState world
+        do Game.SetProgression coreGameState world
         let isTextCrawlScreen1InUse = Game.GetIsTextCrawlScreen1InUse world
-        let world = Game.SetIsTextCrawlScreen1InUse (not isTextCrawlScreen1InUse) world
-        world
+        do Game.SetIsTextCrawlScreen1InUse (not isTextCrawlScreen1InUse) world
 
 type MainMenuDispatcher () =
     inherit ScreenDispatcherImSim ()
@@ -98,99 +92,79 @@ type MainMenuDispatcher () =
 
     override this.Process (_, screen, world) =
         let menuState = screen.GetMainMenu world
-        let world = World.beginGroup "MainMenuGroup" [] world
-        let world = 
-            match menuState with
-            | Title -> 
-                let world =
-                    World.doLabel 
-                        "Title" 
-                        [ Entity.Position .= v3 0.0f 64.0f 0.0f
-                          Entity.Text .= "Echoes of Elaria"
-                          Entity.Size .= v3 140f 32f 0f ]
-                        world
-                let world = 
-                    World.doLabel 
-                        "Subtitle" 
-                        [ Entity.Position .= v3 0.0f 40.0f 0.0f
-                          Entity.Text .= "The Crystals of Destiny"
-                          Entity.Size .= v3 200f 32f 0f ]
-                        world
-                let clicked, world = 
-                    World.doButton 
-                        "StartGameButton"
-                        [ Entity.Text .= "Start Game" ]
-                        world
+        do World.beginGroup "MainMenuGroup" [] world
 
-                let world =
-                    if clicked then
-                        let progressionState = Game.GetProgression world
-                        let nextState = Progression.doEvent progressionState Progression.StartGame
-                        let world = Game.SetProgression nextState world
-                        world
-                    else world
-
-                let clicked, world =
-                    World.doButton
-                        "LoadGameButton"
-                        [ Entity.Text .= "Load Game"
-                          Entity.Position .= v3 0.0f -40.0f 0.0f ]
-                        world
-
-                let world =
-                    if clicked 
-                    then screen.SetMainMenu Load world
-                    else world
-
-                world
-            | Load ->
-                 let slotsState = Persistence.getSlotsState ()
-                 let getSlotText = Persistence.getSlotText slotsState
-                 let world = World.doLabel "LoadTitle" [ Entity.Text .= "Load Game"; Entity.Position .= v3 0f 140f 0f ] world
-                 let clicked, world = World.doButton "MainMenuBack" [ Entity.Text .= "Back"; Entity.Position .= v3 0f 100f 0f ] world
-                 let world =
-                    if clicked then screen.SetMainMenu Title world
-                    else world
-
-                 let loadGame slot world =
-                    let loadedState = Persistence.load slot
-                    let progression = Persistence.toProgression loadedState
-                    let world = Game.SetProgression progression world
-                    let zone, position, rotation = loadedState.Location
-                    let world = Simulants.Explore.SetZone zone world
-                    let world = Simulants.PlayerCharacter.SetPosition position world
-                    let world = Simulants.PlayerCharacter.SetRotation rotation world
+        match menuState with
+        | Title -> 
+            do World.doLabel 
+                   "Title" 
+                   [ Entity.Position .= v3 0.0f 64.0f 0.0f
+                     Entity.Text .= "Echoes of Elaria"
+                     Entity.Size .= v3 140f 32f 0f ]
+                   world
+            do World.doLabel 
+                   "Subtitle" 
+                   [ Entity.Position .= v3 0.0f 40.0f 0.0f
+                     Entity.Text .= "The Crystals of Destiny"
+                     Entity.Size .= v3 200f 32f 0f ]
+                   world
+            let clicked = 
+                World.doButton 
+                    "StartGameButton"
+                    [ Entity.Text .= "Start Game" ]
                     world
 
-                 let clicked, world = World.doButton "MainMenuSlot1" [ Entity.Text .= getSlotText Persistence.Slot1; Entity.Position .= v3 0f 60f 0f ] world
+            if clicked then
+                let progressionState = Game.GetProgression world
+                let nextState = Progression.doEvent progressionState Progression.StartGame
+                do Game.SetProgression nextState world
 
-                 let world =
-                     if clicked 
-                     then loadGame Persistence.Slot1 world
-                     else world
+            let clicked =
+                World.doButton
+                    "LoadGameButton"
+                    [ Entity.Text .= "Load Game"
+                      Entity.Position .= v3 0.0f -40.0f 0.0f ]
+                    world
 
-                 let clicked, world = World.doButton "MainMenuSlot2" [ Entity.Text .= getSlotText Persistence.Slot2; Entity.Position .= v3 0f 20f 0f ] world
+            if clicked 
+            then do screen.SetMainMenu Load world
 
-                 let world =
-                     if clicked 
-                     then loadGame Persistence.Slot2 world
-                     else world
+        | Load ->
+            let slotsState = Persistence.getSlotsState ()
+            let getSlotText = Persistence.getSlotText slotsState
+            do World.doLabel "LoadTitle" [ Entity.Text .= "Load Game"; Entity.Position .= v3 0f 140f 0f ] world
 
-                 let clicked, world = World.doButton "MainMenuSlot3" [ Entity.Text .= getSlotText Persistence.Slot3; Entity.Position .= v3 0f -20f 0f ] world
+            let clicked = World.doButton "MainMenuBack" [ Entity.Text .= "Back"; Entity.Position .= v3 0f 100f 0f ] world
+            if clicked then do screen.SetMainMenu Title world
 
-                 let world =
-                     if clicked 
-                     then loadGame Persistence.Slot3 world
-                     else world
+            let loadGame slot world =
+               let loadedState = Persistence.load slot
+               let progression = Persistence.toProgression loadedState
+               do Game.SetProgression progression world
+               let zone, position, rotation = loadedState.Location
+               do Simulants.Explore.SetZone zone world
+               do Simulants.PlayerCharacter.SetPosition position world
+               do Simulants.PlayerCharacter.SetRotation rotation world
 
-                 let clicked, world = World.doButton "MainMenuSlot4" [ Entity.Text .= getSlotText Persistence.Slot4; Entity.Position .= v3 0f -60f 0f ] world
+            let clicked = World.doButton "MainMenuSlot1" [ Entity.Text .= getSlotText Persistence.Slot1; Entity.Position .= v3 0f 60f 0f ] world
 
-                 let world =
-                     if clicked 
-                     then loadGame Persistence.Slot4 world
-                     else world
+            if clicked 
+            then do loadGame Persistence.Slot1 world
 
-                 world
+            let clicked = World.doButton "MainMenuSlot2" [ Entity.Text .= getSlotText Persistence.Slot2; Entity.Position .= v3 0f 20f 0f ] world
+
+            if clicked 
+            then do loadGame Persistence.Slot2 world
+
+            let clicked = World.doButton "MainMenuSlot3" [ Entity.Text .= getSlotText Persistence.Slot3; Entity.Position .= v3 0f -20f 0f ] world
+
+            if clicked 
+            then do loadGame Persistence.Slot3 world
+
+            let clicked = World.doButton "MainMenuSlot4" [ Entity.Text .= getSlotText Persistence.Slot4; Entity.Position .= v3 0f -60f 0f ] world
+
+            if clicked 
+            then do loadGame Persistence.Slot4 world
 
         World.endGroup world
 
@@ -207,7 +181,7 @@ type GameQuest3DDispatcher () =
         let isText = Progression.isTextCrawl progressionState
         let isScreen1InUse = game.GetIsTextCrawlScreen1InUse world
 
-        let _, world = 
+        let _ = 
             World.beginScreen<TextCrawlScreenDispatcher>
                 Simulants.TextCrawl1.Name
                 (isText && isScreen1InUse)
@@ -216,9 +190,9 @@ type GameQuest3DDispatcher () =
                     Screen.TextCrawl @= text ]
                 world
 
-        let world = World.endScreen world
+        do World.endScreen world
 
-        let _,world = 
+        let _ = 
             World.beginScreen<TextCrawlScreenDispatcher>
                 Simulants.TextCrawl2.Name
                 (isText && not isScreen1InUse)
@@ -227,65 +201,54 @@ type GameQuest3DDispatcher () =
                     Screen.TextCrawl @= text ]
                 world
 
-        let world = World.endScreen world
-
-        world
+        do World.endScreen world
 
     let doMainMenu (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, None)
         let progressionState = game.GetProgression world
         let isMainMenu = Progression.isMainMenu progressionState
-        let _, world = World.beginScreen<MainMenuDispatcher> Simulants.MainMenu.Name isMainMenu behavior [] world
-        let world = World.endScreen world
-        world
+        let _ = World.beginScreen<MainMenuDispatcher> Simulants.MainMenu.Name isMainMenu behavior [] world
+        do World.endScreen world
 
     let doExplore (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, Some Assets.Gameplay.FieldSong)
         let progressionState = game.GetProgression world
         let isExplore = Progression.isExplore progressionState
-        let _, world = World.beginScreen<ExploreScreenDispatcher> Simulants.Explore.Name isExplore behavior [] world
-        let world = World.endScreen world
-        world
+        let _ = World.beginScreen<ExploreScreenDispatcher> Simulants.Explore.Name isExplore behavior [] world
+        do World.endScreen world
 
     let doBattle (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, Some Assets.Gameplay.FightSong)
         let progression = game.GetProgression world
         let isBattle = Progression.isBattle progression
         let battle = Progression.toBattle progression
-        let events, world = World.beginScreen<BattleScreenDispatcher> Simulants.Battle.Name isBattle behavior [] world
-        let world = World.endScreen world
-        let world =
-            if FQueue.contains Select events 
-            then Simulants.Battle.SetBattleState (BattleState.init battle) world
-            else world
-        world
+        let events = World.beginScreen<BattleScreenDispatcher> Simulants.Battle.Name isBattle behavior [] world
+        do World.endScreen world
+        if FQueue.contains Select events 
+        then do Simulants.Battle.SetBattleState (BattleState.init battle) world
 
     let doGameOverScreen (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, None)
         let gameState = game.GetProgression world
         let isGameOver = Progression.isGameOver gameState
-        let _, world = World.beginScreen Simulants.GameOver.Name isGameOver behavior [] world
-        let world = World.beginGroup "GameOverGroup" [] world
-        let world =
-            World.doLabel 
-                "GameOverText" 
-                [ Entity.Position .= v3 0.0f 0.0f 0.0f
-                  Entity.Text @= "Game Over"
-                  Entity.Size @= v3 200f 32f 0f ]
-                world
-
-        let world = World.endGroup world
-        let world = World.endScreen world
-        world
+        let _ = World.beginScreen Simulants.GameOver.Name isGameOver behavior [] world
+        do World.beginGroup "GameOverGroup" [] world
+        do World.doLabel 
+               "GameOverText" 
+               [ Entity.Position .= v3 0.0f 0.0f 0.0f
+                 Entity.Text @= "Game Over"
+                 Entity.Size @= v3 200f 32f 0f ]
+               world
+        do World.endGroup world
+        do World.endScreen world
 
     static member Properties =
         [ nonPersistent Game.Progression Progression.initial
           define Game.IsTextCrawlScreen1InUse true ]
 
     override this.Process (myGame, world) =
-        let world = doTextCrawlScreens myGame world
-        let world = doMainMenu myGame world
-        let world = doExplore myGame world
-        let world = doBattle myGame world
-        let world = doGameOverScreen myGame world
-        world
+        do doTextCrawlScreens myGame world
+        do doMainMenu myGame world
+        do doExplore myGame world
+        do doBattle myGame world
+        do doGameOverScreen myGame world

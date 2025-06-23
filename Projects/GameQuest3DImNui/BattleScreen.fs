@@ -132,9 +132,7 @@ type BattleScreenDispatcher () =
 
     override this.Command (model, command, screen, world) =
         match command with
-        | Nil ->
-            just world
-
+        | Nil -> ()
         | UpdateCamera ->
             let simulant = BattleState.getBelligerent model
             let belligerentRotation = simulant.GetRotation world
@@ -143,28 +141,22 @@ type BattleScreenDispatcher () =
                     (belligerentRotation,
                     (Quaternion.CreateFromAxisAngle(v3Up, float32 Math.PI_MINUS_EPSILON)))
             let beligerentPosition = simulant.GetPosition world
-            let world =
-                World.setEye3dCenter
-                    (beligerentPosition + v3Up * 1.75f + belligerentRotation.Left - belligerentRotation.Forward * 3.0f)
-                    world
-            let world = World.setEye3dRotation belligerentRotation world
-            just world
+            do World.setEye3dCenter
+                   (beligerentPosition + v3Up * 1.75f + belligerentRotation.Left - belligerentRotation.Forward * 3.0f)
+                   world
+            do World.setEye3dRotation belligerentRotation world
 
         | ScheduleNextTurn ->
-            let world =
-                World.schedule 
-                    (GameTime.ofSeconds 2f)
-                    (World.signal NextTurn screen)
-                    screen
-                    world
-
-            just world
+            do World.schedule 
+                  (GameTime.ofSeconds 2f)
+                  (World.signal NextTurn screen)
+                  screen
+                  world
 
         | WinBattle ->
             let gameState = Game.GetProgression world
             let nextState = Progression.doEvent gameState (Progression.BattleDone model.Battle.BattleTag)
-            let world = Game.SetProgression nextState world
-            just world
+            do Game.SetProgression nextState world
 
     override this.Content(model, _) =
         [ Content.group Simulants.BattleGroup.Name []
