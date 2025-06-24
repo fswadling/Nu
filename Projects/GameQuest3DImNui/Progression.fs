@@ -501,8 +501,6 @@ module Progression =
                       BattleTag = "LastBattle" }
 
             do! GameOver |> forever
-
-            return ()
         }
         |> StateMachine.unfoldEvent StatefulEvent.fold StatefulEvent.empty
         |> StateMachine.foldState ProgressionState.empty ProgressionState.fold
