@@ -223,8 +223,8 @@ type ExploreScreenDispatcher () =
         for actor in exploreState.PositionedActors do
             let actorZone = Location.getZone actor.Location
             let screenZone = screen.GetZone world
-            if actorZone = screenZone
-            then do doActor actor
+            if actorZone = screenZone then
+                do doActor actor
 
     let doInvisibleWalls (exploreState: ExploreState) (screen: Screen) world =
         let currentZone = screen.GetZone world
@@ -254,8 +254,8 @@ type ExploreScreenDispatcher () =
                     Entity.Size .= v3 10f 32f 0f ]
                   world
 
-            if World.isKeyboardKeyDown KeyboardKey.Space world
-            then do screen.SetInteraction (Active (positionedActor, interaction)) world
+            if World.isKeyboardKeyDown KeyboardKey.Space world then 
+                do screen.SetInteraction (Active (positionedActor, interaction)) world
 
         | Active (positionedActor, (Yield (Prompt (text, options), conversation))) ->
             let actorName = positionedActor.Actor.ToString()
@@ -353,8 +353,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ]
                         world
 
-                if clicked
-                then screen.SetMenuState (Some Save) world
+                if clicked then
+                    do screen.SetMenuState (Some Save) world
 
                 let clicked =
                     World.doButton
@@ -363,8 +363,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ]
                         world
 
-                if clicked
-                then screen.SetMenuState (Some Load) world
+                if clicked then
+                    do screen.SetMenuState (Some Load) world
 
                 do World.endPanel world
 
@@ -390,8 +390,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ] 
                         world
 
-                if clicked
-                then screen.SetMenuState (Some SaveOrLoad) world
+                if clicked then
+                    do screen.SetMenuState (Some SaveOrLoad) world
 
                 let saveGame slot =
                     let events,_ = Game.GetProgression world
@@ -469,8 +469,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ]
                         world
 
-                if clicked
-                then do screen.SetMenuState (Some SaveOrLoad) world
+                if clicked then 
+                    do screen.SetMenuState (Some SaveOrLoad) world
 
                 let clicked = 
                     World.doButton 
@@ -490,8 +490,8 @@ type ExploreScreenDispatcher () =
                     do Simulants.PlayerCharacter.SetPosition position world
                     do Simulants.PlayerCharacter.SetRotation rotation world
 
-                if clicked
-                then do loadGame Persistence.Slot1
+                if clicked then 
+                    do loadGame Persistence.Slot1
 
                 let clicked =
                     World.doButton
@@ -501,8 +501,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ]
                         world
 
-                if clicked
-                then do loadGame Persistence.Slot2
+                if clicked then 
+                    do loadGame Persistence.Slot2
 
                 let clicked =
                     World.doButton
@@ -512,8 +512,8 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ] 
                         world
 
-                if clicked
-                then loadGame Persistence.Slot3
+                if clicked then
+                    do loadGame Persistence.Slot3
 
                 let clicked = 
                     World.doButton
@@ -523,14 +523,14 @@ type ExploreScreenDispatcher () =
                           Entity.Size .= v3 200f 20f 0f ]
                         world
 
-                if clicked
-                then do loadGame Persistence.Slot4
+                if clicked then
+                    do loadGame Persistence.Slot4
 
                 do World.endPanel world
 
         | None ->
-            if (World.isKeyboardKeyPressed KeyboardKey.Escape world)
-            then screen.SetMenuState (Some SaveOrLoad) world
+            if (World.isKeyboardKeyPressed KeyboardKey.Escape world) then 
+                do screen.SetMenuState (Some SaveOrLoad) world
 
     static member Properties =
         [ define Screen.Zone StartingZone
