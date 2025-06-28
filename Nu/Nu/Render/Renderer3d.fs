@@ -79,7 +79,8 @@ type [<SymbolicExpansion>] MaterialProperties =
       IgnoreLightMapsOpt : bool voption
       OpaqueDistanceOpt : single voption
       FinenessOffsetOpt : single voption
-      ScatterTypeOpt : ScatterType voption }
+      ScatterTypeOpt : ScatterType voption
+      IsUnlit : bool }
 
     member this.Albedo = ValueOption.defaultValue Constants.Render.AlbedoDefault this.AlbedoOpt
     member this.Roughness = ValueOption.defaultValue Constants.Render.RoughnessDefault this.RoughnessOpt
@@ -106,7 +107,8 @@ module MaterialProperties =
           IgnoreLightMapsOpt = ValueSome Constants.Render.IgnoreLightMapsDefault
           OpaqueDistanceOpt = ValueSome Constants.Render.OpaqueDistanceDefault
           FinenessOffsetOpt = ValueSome Constants.Render.FinenessOffsetDefault
-          ScatterTypeOpt = ValueSome Constants.Render.ScatterTypeDefault }
+          ScatterTypeOpt = ValueSome Constants.Render.ScatterTypeDefault 
+          IsUnlit = Constants.Render.IsUnlitDefault }
 
     /// Empty material properties.
     let empty =
@@ -119,7 +121,8 @@ module MaterialProperties =
           IgnoreLightMapsOpt = ValueNone
           OpaqueDistanceOpt = ValueNone
           FinenessOffsetOpt = ValueNone
-          ScatterTypeOpt = ValueNone }
+          ScatterTypeOpt = ValueNone
+          IsUnlit = Constants.Render.IsUnlitDefault }
 
 /// Material description for surfaces.
 type [<SymbolicExpansion>] Material =
@@ -2103,6 +2106,7 @@ type [<ReferenceEquality>] GlRenderer3d =
             let opaqueDistance = match properties.OpaqueDistanceOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.OpaqueDistance
             let finenessOffset = match properties.FinenessOffsetOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.FinenessOffset
             let scatterType = match properties.ScatterTypeOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ScatterType
+
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20] <- albedo.R
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 1] <- albedo.G
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 2] <- albedo.B

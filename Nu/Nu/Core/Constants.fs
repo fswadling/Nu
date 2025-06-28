@@ -274,6 +274,7 @@ module Render =
     let [<Literal>] Body3dSegmentRenderMagnitudeMax = 48.0f
     let [<Literal>] Body3dSegmentRenderDistanceMax = 40.0f
     let [<Literal>] Body3dRenderDistanceMax = 32.0f
+    let [<Literal>] IsUnlitDefault = false
 
 [<RequireQualifiedAccess>]
 module Audio =

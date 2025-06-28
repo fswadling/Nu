@@ -22,7 +22,7 @@
  [Test
   [[Assets Assets/Test [bmp psd ttf] [PsdToPng] [Render2d]]
    [Assets Assets/Test [dds jpeg jpg tga tif tiff png] [ConvertToDds] [Render3d]]
-   [Assets Assets/Test [cbm dae fbx glsl mtl obj raw] [] [Render3d]]
+   [Assets Assets/Test [cbm dae fbx gltf glb glsl mtl obj raw bin] [] [Render3d]]
    [Assets Assets/Test [mp3 ogg wav] [] [Audio]]
    [Assets Assets/Test [csv nueffect nuscript] [] [Symbol]]
    [Assets Assets/Test [nuentity nugroup tmx tsx] [] []]]]]

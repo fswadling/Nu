@@ -129,7 +129,8 @@ module WorldEntityHierarchy =
                                   IgnoreLightMapsOpt = ValueSome ignoreLightMaps
                                   OpaqueDistanceOpt = ValueSome opaqueDistance
                                   FinenessOffsetOpt = ValueSome finenessOffset
-                                  ScatterTypeOpt = ValueSome scatterType }
+                                  ScatterTypeOpt = ValueSome scatterType
+                                  IsUnlit = false }
                             child.SetMaterialProperties properties world
                             let material =
                                 if surfaceMaterialsPopulated then
