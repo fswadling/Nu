@@ -38,7 +38,7 @@ layout(location = 10) in vec4 albedo;
 layout(location = 11) in vec4 material;
 layout(location = 12) in vec4 heightPlus;
 layout(location = 13) in vec4 subsurfacePlus;
-layout(location = 14) in uint flags;
+layout(location = 14) in float flags;
 
 out vec4 positionOut;
 out vec2 texCoordsOut;
@@ -75,7 +75,7 @@ void main()
     normalOut = transpose(inverse(mat3(model))) * normalBlended.xyz;
     heightPlusOut = heightPlus;
     subsurfacePlusOut = subsurfacePlus;
-    flagsOut = flags;
+    flagsOut = floatBitsToUint(flags);
     gl_Position = projection * view * positionOut;
 }
 

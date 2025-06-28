@@ -24,6 +24,7 @@ const int SHADOW_TEXTURES_MAX = 9;
 const int SHADOW_MAPS_MAX = 9;
 const float SHADOW_FOV_MAX = 2.1;
 const float SHADOW_SEAM_INSET = 0.001;
+const uint FLAG_UNLIT = 1u << 0; // bit 0
 
 const vec4 SSVF_DITHERING[4] =
 vec4[](
@@ -738,12 +739,24 @@ void main()
         vec3 albedo = texture(albedoTexture, texCoordsOut).rgb;
         vec4 material = texture(materialTexture, texCoordsOut);
         vec3 normal = texture(normalPlusTexture, texCoordsOut).xyz;
+        uint flags = texture(flagsTexture, texCoordsOut).r;
         vec4 subdermalPlus = vec4(0.0);
         vec4 scatterPlus = vec4(0.0);
         if (sssEnabled == 1)
         {
             subdermalPlus = texture(subdermalPlusTexture, texCoordsOut);
             scatterPlus = texture(scatterPlusTexture, texCoordsOut);
+        }
+
+        // short circuit the lighting if unlit flag is present
+        if ((flags & FLAG_UNLIT) != 0u)
+        {
+            color = vec4(albedo, 1);
+
+            // Zero out other buffers (optional depending on your renderer)
+            fogAccum = vec4(0.0);
+            depth = position.z;
+            return;
         }
 
         // retrieve data from intermediate buffers
