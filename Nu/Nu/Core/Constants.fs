@@ -275,10 +275,10 @@ module Render =
     let [<Literal>] Body3dSegmentRenderDistanceMax = 40.0f
     let [<Literal>] Body3dRenderDistanceMax = 32.0f
     let [<Literal>] IsUnlitDefault = false
+    let [<Literal>] IsToonDefault = false
 
 [<RequireQualifiedAccess>]
 module Audio =
-
     let [<Literal>] MasterAudioVolumeDefault = 1.0f
     let [<Literal>] MasterSoundVolumeDefault = 1.0f
     let [<Literal>] MasterSongVolumeDefault = 1.0f

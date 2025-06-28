@@ -130,7 +130,8 @@ module WorldEntityHierarchy =
                                   OpaqueDistanceOpt = ValueSome opaqueDistance
                                   FinenessOffsetOpt = ValueSome finenessOffset
                                   ScatterTypeOpt = ValueSome scatterType
-                                  IsUnlit = false }
+                                  IsUnlit = false
+                                  IsToon = false }
                             child.SetMaterialProperties properties world
                             let material =
                                 if surfaceMaterialsPopulated then

@@ -80,7 +80,8 @@ type [<SymbolicExpansion>] MaterialProperties =
       OpaqueDistanceOpt : single voption
       FinenessOffsetOpt : single voption
       ScatterTypeOpt : ScatterType voption
-      IsUnlit : bool }
+      IsUnlit : bool
+      IsToon : bool }
 
     member this.Albedo = ValueOption.defaultValue Constants.Render.AlbedoDefault this.AlbedoOpt
     member this.Roughness = ValueOption.defaultValue Constants.Render.RoughnessDefault this.RoughnessOpt
@@ -108,7 +109,8 @@ module MaterialProperties =
           OpaqueDistanceOpt = ValueSome Constants.Render.OpaqueDistanceDefault
           FinenessOffsetOpt = ValueSome Constants.Render.FinenessOffsetDefault
           ScatterTypeOpt = ValueSome Constants.Render.ScatterTypeDefault 
-          IsUnlit = Constants.Render.IsUnlitDefault }
+          IsUnlit = Constants.Render.IsUnlitDefault
+          IsToon = Constants.Render.IsToonDefault }
 
     /// Empty material properties.
     let empty =
@@ -122,7 +124,8 @@ module MaterialProperties =
           OpaqueDistanceOpt = ValueNone
           FinenessOffsetOpt = ValueNone
           ScatterTypeOpt = ValueNone
-          IsUnlit = Constants.Render.IsUnlitDefault }
+          IsUnlit = Constants.Render.IsUnlitDefault
+          IsToon = Constants.Render.IsToonDefault }
 
 /// Material description for surfaces.
 type [<SymbolicExpansion>] Material =
@@ -2109,6 +2112,7 @@ type [<ReferenceEquality>] GlRenderer3d =
 
             let mutable flags = 0
             if properties.IsUnlit then do flags <- flags ||| (1 <<< 0)
+            if properties.IsToon then do flags <- flags ||| (1 <<< 1)
             let flags = System.BitConverter.Int32BitsToSingle flags
 
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20] <- albedo.R
