@@ -268,10 +268,10 @@ module Progression =
             | { Event = BattleDone tag } when tag = battleState.BattleTag -> true
             | _ -> false)
 
-    let private foldExplore
-        (accumulated: ScreenState)
-        (event: ScreenState): ScreenState =
-        match accumulated, event with
+    let private combineExplore
+        (left: ScreenState)
+        (right: ScreenState): ScreenState =
+        match left, right with
         | Explore accumulated, Explore exploreState -> 
             let positionedActors = 
                 Array.append
@@ -288,10 +288,12 @@ module Progression =
                   InvisibleWalls = invisibleWalls }
 
             Explore exploreState
-        | _, _ -> accumulated
+        | _, Explore _ -> left
+        | Explore _, _ -> right
+        | _ -> left
 
     let private exploreStateMachine =
-        ParallelStateMachineBuilder<ScreenState>(foldExplore)
+        ParallelStateMachineBuilder<ScreenState>(combineExplore)
 
     let private crystalFoundText
         (crystal: Crystal)
