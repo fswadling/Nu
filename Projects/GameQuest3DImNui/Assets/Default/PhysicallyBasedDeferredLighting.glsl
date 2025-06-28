@@ -15,6 +15,10 @@ void main()
 #shader fragment
 #version 460 core
 
+const float TOON_DARKER = 0.2;
+const float TOON_DARK = 0.5;
+const float TOON_LIGHT = 1.0;
+
 const float PI = 3.141592654;
 const float PI_OVER_2 = PI / 2.0;
 const float REFLECTION_LOD_MAX = 7.0;
@@ -24,7 +28,8 @@ const int SHADOW_TEXTURES_MAX = 9;
 const int SHADOW_MAPS_MAX = 9;
 const float SHADOW_FOV_MAX = 2.1;
 const float SHADOW_SEAM_INSET = 0.001;
-const uint FLAG_UNLIT = 1u << 0; // bit 0
+const uint FLAG_UNLIT = 1u << 0;
+const uint FLAG_TOON = 1u << 1;
 
 const vec4 SSVF_DITHERING[4] =
 vec4[](
@@ -909,6 +914,62 @@ void main()
         vec3 specularEnvironmentSubterm = f * environmentBrdf.x + environmentBrdf.y;
         vec3 specularEnvironment = environmentFilter * specularEnvironmentSubterm * ambientLight;
         vec3 specular = (1.0 - specularScreenWeight) * specularEnvironment + specularScreenWeight * specularScreen;
+
+        if ((flags & FLAG_TOON) != 0u)
+        {
+            // Step 1: Choose a combined light direction
+            vec3 combinedLightDir = vec3(0.0);
+            float totalWeight = 0.0;
+
+            if (lightsCount == 0)
+            {
+                vec3 toonColor = albedo * TOON_DARKER;
+
+                // Output
+                color = vec4(toonColor, 1.0);
+                fogAccum = vec4(0.0);
+                depth = position.z;
+                return;
+            }
+        
+            for (int i = 0; i < lightsCount; ++i)
+            {
+                vec3 lightDir = lightTypes[i] == 2 ? -lightDirections[i]
+                                                   : normalize(lightOrigins[i] - position.xyz);
+                float weight = 1.0;
+        
+                if (lightTypes[i] != 2) {
+                    float dist = length(lightOrigins[i] - position.xyz);
+                    weight = 1.0 / (dist * dist + 1.0); // avoid division by 0
+                }
+        
+                combinedLightDir += weight * lightDir;
+                totalWeight += weight;
+            }
+        
+            combinedLightDir = totalWeight > 0.0 ? normalize(combinedLightDir / totalWeight)
+                                                 : normalize(vec3(0.5, 1.0, 0.2)); // default light
+        
+            // Step 2: Basic diffuse from combined direction
+            float nDotL = max(dot(normalize(normal), combinedLightDir), 0.0);
+        
+            // Step 3: Quantize brightness
+            float toonBrightness = 0.0;
+            if (nDotL < TOON_DARKER)
+                toonBrightness = TOON_DARKER;
+            else if (nDotL < TOON_DARK)
+                toonBrightness = TOON_DARK;
+            else
+                toonBrightness = TOON_LIGHT;
+        
+            vec3 toonColor = albedo * toonBrightness;
+        
+            // Output
+            color = vec4(diffuse + toonColor, 1.0);
+            fogAccum = vec4(0.0);
+            depth = position.z;
+            return;
+        }
 
         // write color
         color = vec4(lightAccum + scatterAccum + diffuse + emission * albedo + specular, 1.0);
