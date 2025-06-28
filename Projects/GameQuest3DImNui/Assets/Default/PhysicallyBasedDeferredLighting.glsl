@@ -76,6 +76,7 @@ uniform sampler2D ambientTexture;
 uniform sampler2D irradianceTexture;
 uniform sampler2D environmentFilterTexture;
 uniform sampler2D ssaoTexture;
+uniform usampler2D flagsTexture;
 uniform sampler2D shadowTextures[SHADOW_TEXTURES_MAX];
 uniform samplerCube shadowMaps[SHADOW_MAPS_MAX];
 uniform vec3 lightOrigins[LIGHTS_MAX];

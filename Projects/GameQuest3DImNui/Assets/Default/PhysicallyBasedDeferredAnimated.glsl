@@ -38,6 +38,7 @@ layout(location = 10) in vec4 albedo;
 layout(location = 11) in vec4 material;
 layout(location = 12) in vec4 heightPlus;
 layout(location = 13) in vec4 subsurfacePlus;
+layout(location = 14) in uint flags;
 
 out vec4 positionOut;
 out vec2 texCoordsOut;
@@ -46,6 +47,7 @@ flat out vec4 albedoOut;
 flat out vec4 materialOut;
 flat out vec4 heightPlusOut;
 flat out vec4 subsurfacePlusOut;
+flat out uint flagsOut;
 
 void main()
 {
@@ -73,6 +75,7 @@ void main()
     normalOut = transpose(inverse(mat3(model))) * normalBlended.xyz;
     heightPlusOut = heightPlus;
     subsurfacePlusOut = subsurfacePlus;
+    flagsOut = flags;
     gl_Position = projection * view * positionOut;
 }
 
@@ -101,6 +104,7 @@ flat in vec4 albedoOut;
 flat in vec4 materialOut;
 flat in vec4 heightPlusOut;
 flat in vec4 subsurfacePlusOut;
+flat in uint flagsOut;
 
 layout(location = 0) out vec4 position;
 layout(location = 1) out vec3 albedo;
@@ -108,6 +112,7 @@ layout(location = 2) out vec4 material;
 layout(location = 3) out vec4 normalPlus;
 layout(location = 4) out vec4 subdermalPlus;
 layout(location = 5) out vec4 scatterPlus;
+layout(location = 6) out uint flagsBufferOut;
 
 // NOTE: algorithm from Chapter 16 of OpenGL Shading Language
 vec3 saturate(vec3 rgb, float adjustment)
@@ -179,4 +184,7 @@ void main()
             vec3(0.6, 1, 0.06); // foliage scatter
     else scatterPlus.rgb = scatter.rgb;
     scatterPlus.a = scatterType;
+
+    // Set flags
+    flagsBufferOut = flagsOut;
 }

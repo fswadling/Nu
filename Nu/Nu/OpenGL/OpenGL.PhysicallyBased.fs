@@ -487,6 +487,7 @@ module PhysicallyBased =
           NormalPlusTextureUniform : int
           SubdermalPlusTextureUniform : int
           ScatterPlusTextureUniform : int
+          FlagsTextureUniform : int
           BrdfTextureUniform : int
           AmbientTextureUniform : int
           IrradianceTextureUniform : int
@@ -2186,6 +2187,7 @@ module PhysicallyBased =
         let normalPlusTextureUniform = Gl.GetUniformLocation (shader, "normalPlusTexture")
         let subdermalPlusTextureUniform = Gl.GetUniformLocation (shader, "subdermalPlusTexture")
         let scatterPlusTextureUniform = Gl.GetUniformLocation (shader, "scatterPlusTexture")
+        let flagsTextureUniform = Gl.GetUniformLocation (shader, "flagsTexture")
         let brdfTextureUniform = Gl.GetUniformLocation (shader, "brdfTexture")
         let ambientTextureUniform = Gl.GetUniformLocation (shader, "ambientTexture")
         let irradianceTextureUniform = Gl.GetUniformLocation (shader, "irradianceTexture")
@@ -2281,6 +2283,7 @@ module PhysicallyBased =
           NormalPlusTextureUniform = normalPlusTextureUniform
           SubdermalPlusTextureUniform = subdermalPlusTextureUniform
           ScatterPlusTextureUniform = scatterPlusTextureUniform
+          FlagsTextureUniform = flagsTextureUniform
           BrdfTextureUniform = brdfTextureUniform
           AmbientTextureUniform = ambientTextureUniform
           IrradianceTextureUniform = irradianceTextureUniform
@@ -3560,6 +3563,7 @@ module PhysicallyBased =
          normalPlusTexture : Texture.Texture,
          subdermalPlusTexture : Texture.Texture,
          scatterPlusTexture : Texture.Texture,
+         flagsTexture : Texture.Texture,
          brdfTexture : Texture.Texture,
          ambientTexture : Texture.Texture,
          irradianceTexture : Texture.Texture,
@@ -3635,10 +3639,11 @@ module PhysicallyBased =
         Gl.Uniform1 (shader.IrradianceTextureUniform, 8)
         Gl.Uniform1 (shader.EnvironmentFilterTextureUniform, 9)
         Gl.Uniform1 (shader.SsaoTextureUniform, 10)
+        Gl.Uniform1 (shader.FlagsTextureUniform, 11)
         for i in 0 .. dec Constants.Render.ShadowTexturesMax do
-            Gl.Uniform1 (shader.ShadowTexturesUniforms.[i], i + 11)
+            Gl.Uniform1 (shader.ShadowTexturesUniforms.[i], i + 12)
         for i in 0 .. dec Constants.Render.ShadowMapsMax do
-            Gl.Uniform1 (shader.ShadowMapsUniforms.[i], i + 11 + Constants.Render.ShadowTexturesMax)
+            Gl.Uniform1 (shader.ShadowMapsUniforms.[i], i + 12 + Constants.Render.ShadowTexturesMax)
         for i in 0 .. dec (min lightOrigins.Length Constants.Render.LightsMaxDeferred) do
             Gl.Uniform3 (shader.LightOriginsUniforms.[i], lightOrigins.[i].X, lightOrigins.[i].Y, lightOrigins.[i].Z)
         for i in 0 .. dec (min lightDirections.Length Constants.Render.LightsMaxDeferred) do
@@ -3692,11 +3697,13 @@ module PhysicallyBased =
         Gl.BindTexture (TextureTarget.Texture2d, environmentFilterTexture.TextureId)
         Gl.ActiveTexture TextureUnit.Texture10
         Gl.BindTexture (TextureTarget.Texture2d, ssaoTexture.TextureId)
+        Gl.ActiveTexture TextureUnit.Texture11
+        Gl.BindTexture (TextureTarget.Texture2d, flagsTexture.TextureId)
         for i in 0 .. dec (min shadowTextures.Length Constants.Render.ShadowTexturesMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 11 + i |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 12 + i |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.Texture2d, shadowTextures.[i].TextureId)
         for i in 0 .. dec (min shadowMaps.Length Constants.Render.ShadowMapsMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 11 + i + Constants.Render.ShadowTexturesMax |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 12 + i + Constants.Render.ShadowTexturesMax |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.TextureCubeMap, shadowMaps.[i].TextureId)
         Hl.Assert ()
 
@@ -3734,11 +3741,13 @@ module PhysicallyBased =
         Gl.BindTexture (TextureTarget.Texture2d, 0u)
         Gl.ActiveTexture TextureUnit.Texture10
         Gl.BindTexture (TextureTarget.Texture2d, 0u)
+        Gl.ActiveTexture TextureUnit.Texture11
+        Gl.BindTexture (TextureTarget.Texture2d, 0u)
         for i in 0 .. dec (min shadowTextures.Length Constants.Render.ShadowTexturesMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 11 + i |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 12 + i |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.Texture2d, 0u)
         for i in 0 .. dec (min shadowMaps.Length Constants.Render.ShadowMapsMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 11 + i + Constants.Render.ShadowTexturesMax |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 12 + i + Constants.Render.ShadowTexturesMax |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.TextureCubeMap, 0u)
         Hl.Assert ()
 
