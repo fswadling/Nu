@@ -92,6 +92,7 @@ type BelligerentDispatcher () =
 
     static member Properties =
         [ define Entity.BodyType KinematicCharacter
+          define Entity.MaterialProperties { MaterialProperties.defaultProperties with IsToon = true }
           define Entity.BodyShape
             (CapsuleShape
                 { Height = 1.0f
@@ -165,6 +166,7 @@ type BattleScreenDispatcher () =
                  Content.text "pressSpace"
                     [ Entity.Text == "Press space to  attack"
                       Entity.Size == v3 200f 22f 0f ]
+              Content.light3d "Sun" [ Entity.Position == v3 -62.710f -11.870f -33.452f ]
               for i, companion in Seq.indexed model.Battle.Companions do
                  let position = BattleState.getTeamMemberPosition i
                  let simulant = BattleState.getTeamMemberSimulant i

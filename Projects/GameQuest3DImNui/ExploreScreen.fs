@@ -87,7 +87,7 @@ type PlayerDispatcher () =
               Entity.Animations @= getAnimations entity world
               Entity.Size .= v3Dup 2.0f
               Entity.Offset .= v3 0.0f 1.0f 0.0f
-              Entity.MaterialProperties .= MaterialProperties.defaultProperties ]
+              Entity.MaterialProperties .= { MaterialProperties.defaultProperties with IsToon = true } ]
             world
 
 type ExploreScreenDispatcher () =
@@ -183,7 +183,7 @@ type ExploreScreenDispatcher () =
                          "AnimatedModel" 
                          [ Entity.Size .= v3Dup 2.0f
                            Entity.Offset .= v3 0.0f 1.0f 0.0f
-                           Entity.MaterialProperties .= MaterialProperties.defaultProperties
+                           Entity.MaterialProperties .= { MaterialProperties.defaultProperties with IsToon = true }
                            Entity.Animations .= [| animations |]
                            Entity.AnimatedModel .= asset ]
                          world
@@ -542,6 +542,7 @@ type ExploreScreenDispatcher () =
         let zone = screen.GetZone world
         do World.beginGroup Simulants.ExploreGroup.Name [] world
         do World.doSkyBox "SkyBox" [] world
+        do World.doLight3d "Sun" [ Entity.Position .= v3 1.158f 2.990f -36.396f ] world
         do World.doRigidModelHierarchy Simulants.Zone.Name [ Entity.StaticModel @= Zones.toAsset zone ] world
         do World.doEntity<PlayerDispatcher> Simulants.PlayerCharacter.Name [ Entity.Position .= initialPosition; Entity.Rotation .= initialRotation ] world
         do doPlayerMovement world
