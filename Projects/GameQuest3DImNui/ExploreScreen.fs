@@ -313,7 +313,7 @@ type ExploreScreenDispatcher () =
         | Active (positionedActor, interaction) ->
             // Upon encountering a progression event in the interaction,
             // apply and move on.
-            let progressionEvents, _ = Game.GetProgression world
+            let progressionEvents = Game.GetProgressionEvents world
             let currentProgression = StateMachine.zip progressionEvents (snd Progression.initial)
 
             let interaction, (newProgressionEvents, newStateMachine) =
@@ -323,7 +323,8 @@ type ExploreScreenDispatcher () =
 
             let state = StateMachine.toState newStateMachine
             let interactionState = Active (positionedActor, interaction)
-            do Game.SetProgression (newProgressionEvents, state) world
+            do Game.SetProgressionEvents (newProgressionEvents) world
+            do Game.SetProgressionState state world
             do screen.SetInteraction interactionState world
         | _ ->
             ()
@@ -396,7 +397,7 @@ type ExploreScreenDispatcher () =
                     do screen.SetMenuState (Some SaveOrLoad) world
 
                 let saveGame slot =
-                    let events,_ = Game.GetProgression world
+                    let events = Game.GetProgressionEvents world
                     let zone = screen.GetZone world
                     let position = Simulants.PlayerCharacter.GetPosition world
                     let rotation = Simulants.PlayerCharacter.GetRotation world
@@ -486,7 +487,8 @@ type ExploreScreenDispatcher () =
                     let loadedState = Persistence.load slot
                     let progressionEvents, progressionStateMachine = Persistence.toProgression loadedState
                     let state = StateMachine.toState progressionStateMachine
-                    do Game.SetProgression (progressionEvents, state) world
+                    do Game.SetProgressionEvents progressionEvents world
+                    do Game.SetProgressionState state world
                     let zone, position, rotation = loadedState.Location
                     do screen.SetMenuState None world
                     do screen.SetZone zone world
@@ -541,7 +543,7 @@ type ExploreScreenDispatcher () =
           define Screen.MenuState None ]
 
     override this.Process (_, screen, world) =
-        let explore = Game.GetProgression world |> snd |> _.Explore
+        let explore = Game.GetProgressionState world |> _.Explore
         let zone = screen.GetZone world
         do World.beginGroup Simulants.ExploreGroup.Name [] world
         do World.doSkyBox "SkyBox" [] world

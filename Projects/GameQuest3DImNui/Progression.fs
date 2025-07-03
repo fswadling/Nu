@@ -510,24 +510,19 @@ module Progression =
 [<AutoOpen>]
 module MyGameExtensions =
     type Game with
-        member this.GetProgression 
-            world : ProgressionEvent FQueue * ProgressionState =
-            this.Get
-                (nameof Game.Progression)
-                world
+        member this.GetProgressionEvents world : ProgressionEvent FQueue = this.Get (nameof Game.ProgressionEvents) world
+        member this.SetProgressionEvents (value : ProgressionEvent FQueue) (world: World) = this.Set (nameof Game.ProgressionEvents) value world
+        member this.ProgressionEvents = lens (nameof Game.ProgressionEvents) this this.GetProgressionEvents this.SetProgressionEvents
 
-        member this.SetProgression
-            (value : ProgressionEvent FQueue * ProgressionState)
-            (world: World) =
-            this.Set
-                (nameof Game.Progression)
-                value
-                world
+        member this.GetProgressionState world : ProgressionState = this.Get (nameof Game.ProgressionState) world
+        member this.SetProgressionState (value : ProgressionState) (world: World) = this.Set (nameof Game.ProgressionState) value world
+        member this.ProgressionState = lens (nameof Game.ProgressionState) this this.GetProgressionState this.SetProgressionState
 
-        member this.Progression =
-            lens
-                (nameof Game.Progression)
-                this
-                this.GetProgression
-                this.SetProgression
-
+        member this.DoProgressionEvent event world : unit =
+            let events = this.GetProgressionEvents world
+            let _, initialStateMachine = Progression.initial
+            let newEvents = FQueue.conj event events
+            let newStateMachine = StateMachine.zip newEvents initialStateMachine
+            let state = StateMachine.toState newStateMachine
+            do this.SetProgressionEvents newEvents world
+            do this.SetProgressionState state world

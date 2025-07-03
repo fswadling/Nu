@@ -2,7 +2,6 @@
 
 open Nu
 open GameQuest3DImNui
-open Prime
 
 // this is a plugin for the Nu game engine that directs the execution of your application and editor
 type MyGamePlugin () =
@@ -16,7 +15,8 @@ type MyGamePlugin () =
             [("Start",
                 fun world -> 
                     do Game.SetIsTextCrawlScreen1InUse true world
-                    do Game.SetProgression (progressionEvents, state)  world
+                    do Game.SetProgressionEvents progressionEvents  world
+                    do Game.SetProgressionState state world
                     ())]
 
     // this specifies which packages are automatically loaded at game start-up.

@@ -78,13 +78,7 @@ type TextCrawlScreenDispatcher () =
         else
 
         do screen.SetAwaitingProgression false world
-        let progressionEvents,_ = Game.GetProgression world
-        let _, sm = Progression.initial
-        let sm = StateMachine.zip progressionEvents sm
-        let progression = progressionEvents, sm
-        let newProgressionEvents, newStateMachine = Progression.doTextCrawl progression
-        let newState = StateMachine.toState newStateMachine
-        do Game.SetProgression (newProgressionEvents, newState) world
+        do Game.DoProgressionEvent (TextCrawlDone text) world
         let isTextCrawlScreen1InUse = Game.GetIsTextCrawlScreen1InUse world
         do Game.SetIsTextCrawlScreen1InUse (not isTextCrawlScreen1InUse) world
 
@@ -119,13 +113,7 @@ type MainMenuDispatcher () =
                     world
 
             if clicked then
-                let progressionEvents, _ = Game.GetProgression world
-                let _, sm = Progression.initial
-                let sm = StateMachine.zip progressionEvents sm
-                let progression = progressionEvents, sm
-                let nextEvents, newStateMachine = Progression.doEvent progression Progression.StartGame
-                let newState = StateMachine.toState newStateMachine
-                do Game.SetProgression (nextEvents, newState) world
+                do Game.DoProgressionEvent Progression.StartGame world
 
             let clicked =
                 World.doButton
@@ -149,7 +137,8 @@ type MainMenuDispatcher () =
                let loadedState = Persistence.load slot
                let progressionEvents, stateMachine = Persistence.toProgression loadedState
                let state = StateMachine.toState stateMachine
-               do Game.SetProgression (progressionEvents, state) world
+               do Game.SetProgressionEvents progressionEvents world
+               do Game.SetProgressionState state world
                let zone, position, rotation = loadedState.Location
                do Simulants.Explore.SetZone zone world
                do Simulants.PlayerCharacter.SetPosition position world
@@ -185,7 +174,7 @@ type GameQuest3DDispatcher () =
     // Feels a bit hacky but it works.
     let doTextCrawlScreens (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, None)
-        let _, state = game.GetProgression world
+        let state = game.GetProgressionState world
         let text = state.TextCrawl
         let isText = state.State.IsTextCrawl
         let isScreen1InUse = game.GetIsTextCrawlScreen1InUse world
@@ -214,21 +203,21 @@ type GameQuest3DDispatcher () =
 
     let doMainMenu (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, None)
-        let _, state = game.GetProgression world
+        let state = game.GetProgressionState world
         let isMainMenu = state.State.IsMainMenu
         let _ = World.beginScreen<MainMenuDispatcher> Simulants.MainMenu.Name isMainMenu behavior [] world
         do World.endScreen world
 
     let doExplore (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, Some Assets.Gameplay.FieldSong)
-        let _, state = game.GetProgression world
+        let state = game.GetProgressionState world
         let isExplore = state.State.IsExplore
         let _ = World.beginScreen<ExploreScreenDispatcher> Simulants.Explore.Name isExplore behavior [] world
         do World.endScreen world
 
     let doBattle (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, Some Assets.Gameplay.FightSong)
-        let _,state = game.GetProgression world
+        let state = game.GetProgressionState world
         let isBattle = state.State.IsBattle
         let battle = state.Battle
         let events = World.beginScreen<BattleScreenDispatcher> Simulants.Battle.Name isBattle behavior [] world
@@ -238,8 +227,7 @@ type GameQuest3DDispatcher () =
 
     let doGameOverScreen (game: Game) world =
         let behavior = Dissolve (Constants.Dissolve.Default, None)
-        let _, state = game.GetProgression world
-        
+        let state = game.GetProgressionState world
         let isGameOver = state.State.IsGameOver
         let _ = World.beginScreen Simulants.GameOver.Name isGameOver behavior [] world
         do World.beginGroup "GameOverGroup" [] world
@@ -255,7 +243,8 @@ type GameQuest3DDispatcher () =
     static member Properties =
         let progressionEvents, stateMachine = Progression.initial
         let state = StateMachine.toState stateMachine
-        [ define Game.Progression (progressionEvents, state)
+        [ define Game.ProgressionEvents progressionEvents
+          define Game.ProgressionState state
           define Game.IsTextCrawlScreen1InUse true ]
 
     override this.Process (myGame, world) =
