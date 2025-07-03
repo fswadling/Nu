@@ -22,6 +22,10 @@ module Progression =
         | Prompt of Prompt * Response array
         | Progress of ProgressionEvent
 
+    type InteractionTag =
+        | EncounterCompanion of Companion
+        | EncounterCrystal of Crystal
+
     type Interaction = StateMachine<InteractionEvent, InteractionState, unit>
 
     module private Interaction =
@@ -71,10 +75,16 @@ module Progression =
                     else Return ()
             }
 
+    module InteractionTag =
+        let toInteraction (interactionTag: InteractionTag) =
+            match interactionTag with
+            | EncounterCompanion companion -> Interaction.recruitConversation companion
+            | EncounterCrystal crystal -> Interaction.crystalInteraction crystal
+
     type PositionedActor =
         { Actor: Actor
           Location: Location
-          Interaction: Interaction option }
+          Interaction: InteractionTag option }
 
     type ExploreState =
         { PositionedActors: PositionedActor array
@@ -289,19 +299,19 @@ module Progression =
                 { Actor = Companion BlueWitch
                   Location = SideZone.witchLocation
                   Interaction =
-                    Some (Interaction.recruitConversation BlueWitch) }
+                    Some (InteractionTag.EncounterCompanion BlueWitch) }
 
             let knight =
                 { Actor = Companion Knight
                   Location = SideZone2.knightLocation
                   Interaction =
-                    Some (Interaction.recruitConversation Knight) }
+                    Some (InteractionTag.EncounterCompanion Knight) }
 
             let thief =
                 { Actor = Companion Thief 
                   Location = SideZone3.thiefLocation
                   Interaction =
-                    Some (Interaction.recruitConversation Thief) }
+                    Some (InteractionTag.EncounterCompanion Thief) }
 
             do! exploreStateMachine {
                     let! _ = 
@@ -336,22 +346,22 @@ module Progression =
             let fireCrystal =
                 { Actor = Crystal Fire
                   Location = CrystalsHub.fireCrystalLocation
-                  Interaction = Some (Interaction.crystalInteraction Fire) }
+                  Interaction = Some (InteractionTag.EncounterCrystal Fire) }
 
             let waterCrystal =
                 { Actor = Crystal Water
                   Location = CrystalZone1.waterCrystalLocation
-                  Interaction = Some (Interaction.crystalInteraction Water) }
+                  Interaction = Some (InteractionTag.EncounterCrystal Water) }
 
             let airCrystal =
                 { Actor = Crystal Air
                   Location = CrystalZone1.airCrystalLocation
-                  Interaction = Some (Interaction.crystalInteraction Air) }
+                  Interaction = Some (InteractionTag.EncounterCrystal Air) }
 
             let earthCrystal =
                 { Actor = Crystal Earth 
                   Location = CrystalZone2.earthCrystalLocation
-                  Interaction = Some (Interaction.crystalInteraction Earth)  }
+                  Interaction = Some (InteractionTag.EncounterCrystal Earth)  }
 
             do! exploreStateMachine {
                     let! _ = 
@@ -441,14 +451,14 @@ module Progression =
 
 [<AutoOpen>]
 module MyGameExtensions =
-    let rec private doInteraction (interaction: Interaction) state =
+    let rec private doInteraction (eventsSoFar: InteractionEvent FQueue) (interaction: Interaction) state =
         match state, interaction with
         | (events, Yield (_, progression)),
           (Yield (Progress event, interactionContinuation)) ->
             let state = (FQueue.conj event events), progression event
             let interaction = interactionContinuation ProgressionDone
-            doInteraction interaction state
-        | _ -> interaction, state
+            doInteraction (FQueue.conj ProgressionDone eventsSoFar) interaction state
+        | _ -> interaction, eventsSoFar, state
 
     type Game with
         member this.GetProgressionEvents world : ProgressionEvent FQueue = this.Get (nameof Game.ProgressionEvents) world
@@ -467,11 +477,15 @@ module MyGameExtensions =
             do this.SetProgressionEvents newEvents world
             do this.SetProgressionState state world
 
-        member this.DoProgressionWithInteraction (interaction: Interaction) world: Interaction =
+        member this.DoProgressionWithInteraction
+            (eventsSoFar: InteractionEvent FQueue)
+            (interactionTag: InteractionTag)
+            world: Interaction * InteractionEvent FQueue =
             let events = this.GetProgressionEvents world
             let newStateMachine = StateMachine.zip events Progression.initial
-            let newInteraction, (newEvents, newStateMachine) = doInteraction interaction (events, newStateMachine)
+            let interaction = interactionTag |> InteractionTag.toInteraction |> StateMachine.zip eventsSoFar
+            let newInteraction, newInteractionEvents, (newEvents, newStateMachine) = doInteraction eventsSoFar interaction (events, newStateMachine)
             let newState = StateMachine.toState newStateMachine
             do this.SetProgressionEvents newEvents world
             do this.SetProgressionState newState world
-            newInteraction
+            newInteraction, newInteractionEvents

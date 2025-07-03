@@ -6,8 +6,8 @@ open StateMachine
 
 type InteractionState =
     | NoInteraction
-    | Inactive of PositionedActor * Interaction
-    | Active of PositionedActor * Interaction
+    | Inactive of PositionedActor * InteractionTag
+    | Active of PositionedActor * InteractionTag * Progression.InteractionState * InteractionEvent FQueue
 
 type MenuState =
     | SaveOrLoad
@@ -246,7 +246,7 @@ type ExploreScreenDispatcher () =
     let doInteraction (screen: Screen) world =
         let interaction = screen.GetInteraction world
         match interaction with
-        | Inactive (positionedActor, interaction) ->
+        | Inactive (positionedActor, interactionTag) ->
             do World.doLabel
                   "InteractionPrompt"
                   [ Entity.Text .= "!";
@@ -254,10 +254,24 @@ type ExploreScreenDispatcher () =
                     Entity.Size .= v3 10f 32f 0f ]
                   world
 
-            if World.isKeyboardKeyDown KeyboardKey.Space world then 
-                do screen.SetInteraction (Active (positionedActor, interaction)) world
+            if World.isKeyboardKeyDown KeyboardKey.Space world then
+                let interactionState = interactionTag |> InteractionTag.toInteraction |> StateMachine.toState
+                do screen.SetInteraction (Active (positionedActor, interactionTag, interactionState, FQueue.empty)) world
 
-        | Active (positionedActor, (Yield (Prompt (text, options), conversation))) ->
+        | Active (positionedActor, interactionTag, interactionState, responsesSoFar) ->
+            match interactionState with
+            | Progress _ ->
+                // Upon encountering a progression event in the interaction,
+                // apply and move on.
+                let newInteraction, events = Game.DoProgressionWithInteraction responsesSoFar interactionTag world
+                match newInteraction with
+                | Return _ ->
+                    do screen.SetInteraction NoInteraction world
+                | Yield (newInteractionState, _) ->
+                    let interactionState = Active (positionedActor, interactionTag, newInteractionState, events)
+                    do screen.SetInteraction interactionState world
+            | Prompt (text, options) ->
+
             let actorName = positionedActor.Actor.ToString()
             do World.beginPanel
                    "InteractionPanel"
@@ -302,21 +316,23 @@ type ExploreScreenDispatcher () =
                     ()
                 else
 
-                let conversation = conversation (Respond option)
-                do screen.SetInteraction (Active (positionedActor, conversation)) world
+                let newResponses = FQueue.conj (Respond option) responsesSoFar
+
+                let newInteraction = 
+                    interactionTag 
+                    |> InteractionTag.toInteraction
+                    |> StateMachine.zip newResponses
+
+                match newInteraction with
+                | Return _ -> do screen.SetInteraction NoInteraction world
+                | Yield (newInteractionState, _) ->
+                    let interactionState = Active (positionedActor, interactionTag, newInteractionState, newResponses)
+                    do screen.SetInteraction interactionState world
 
             do World.endPanel world
             do World.endPanel world
 
-        | Active (_, (Return _)) ->
-            do screen.SetInteraction NoInteraction world
-        | Active (positionedActor, interaction) ->
-            // Upon encountering a progression event in the interaction,
-            // apply and move on.
-            let interaction = Game.DoProgressionWithInteraction interaction world
-            let interactionState = Active (positionedActor, interaction)
-            do screen.SetInteraction interactionState world
-        | _ ->
+        | NoInteraction ->
             ()
 
     let doMenu (screen: Screen) world =
