@@ -542,7 +542,16 @@ type ExploreScreenDispatcher () =
         let zone = screen.GetZone world
         do World.beginGroup Simulants.ExploreGroup.Name [] world
         do World.doSkyBox "SkyBox" [] world
-        do World.doLight3d "Sun" [ Entity.Position .= v3 1.158f 2.990f -36.396f ] world
+        do World.doLight3d "Sun"
+            [ Entity.Position .= v3 -8.0f -12.0f -16.5f
+              Entity.LightType .= DirectionalLight
+              Entity.LightCutoff .= 48.0f
+              Entity.DesireShadows .= true ] world
+        do World.doLightProbe3d "LightProbe"
+            [ Entity.Position .= v3 -12.0f 3.0f -18.0f
+              Entity.ProbeBounds .= box3 (v3 -78.0f -48.0f -90.0f) (v3 140.0f 64.0f 140.0f)
+              Entity.AmbientBrightness .= 0.1f ] world
+        do World.requestLightMapRender world
         do World.doRigidModelHierarchy Simulants.Zone.Name [ Entity.StaticModel @= Zones.toAsset zone ] world
         do World.doEntity<PlayerDispatcher> Simulants.PlayerCharacter.Name [ Entity.Position .= initialPosition; Entity.Rotation .= initialRotation ] world
         do doPlayerMovement world

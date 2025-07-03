@@ -166,7 +166,15 @@ type BattleScreenDispatcher () =
                  Content.text "pressSpace"
                     [ Entity.Text == "Press space to  attack"
                       Entity.Size == v3 200f 22f 0f ]
-              Content.light3d "Sun" [ Entity.Position == v3 -62.710f -11.870f -33.452f ]
+              Content.light3d "Sun"
+                [ Entity.Position == v3 -48.0f -12.0f -16.5f
+                  Entity.LightType == DirectionalLight
+                  Entity.LightCutoff == 48.0f
+                  Entity.DesireShadows == true ]
+              Content.lightProbe3d "LightProbe"
+                [ Entity.Position == v3 -12.0f 3.0f -18.0f
+                  Entity.ProbeBounds == box3 (v3 -124.0f -48.0f -118.0f) (v3 160.0f 64.0f 168.0f)
+                  Entity.AmbientBrightness == 0.1f ]
               for i, companion in Seq.indexed model.Battle.Companions do
                  let position = BattleState.getTeamMemberPosition i
                  let simulant = BattleState.getTeamMemberSimulant i
