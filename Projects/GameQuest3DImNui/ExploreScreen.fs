@@ -313,15 +313,17 @@ type ExploreScreenDispatcher () =
         | Active (positionedActor, interaction) ->
             // Upon encountering a progression event in the interaction,
             // apply and move on.
-            let progression = Game.GetProgression world
+            let progressionEvents, _ = Game.GetProgression world
+            let currentProgression = StateMachine.zip progressionEvents (snd Progression.initial)
 
-            let interaction, progressionState =
+            let interaction, (newProgressionEvents, newStateMachine) =
                 Progression.doInteraction
                     interaction
-                    progression
+                    (progressionEvents, currentProgression)
 
+            let state = StateMachine.toState newStateMachine
             let interactionState = Active (positionedActor, interaction)
-            do Game.SetProgression progressionState world
+            do Game.SetProgression (newProgressionEvents, state) world
             do screen.SetInteraction interactionState world
         | _ ->
             ()
@@ -482,8 +484,9 @@ type ExploreScreenDispatcher () =
 
                 let loadGame slot =
                     let loadedState = Persistence.load slot
-                    let progression = Persistence.toProgression loadedState
-                    do Game.SetProgression progression world
+                    let progressionEvents, progressionStateMachine = Persistence.toProgression loadedState
+                    let state = StateMachine.toState progressionStateMachine
+                    do Game.SetProgression (progressionEvents, state) world
                     let zone, position, rotation = loadedState.Location
                     do screen.SetMenuState None world
                     do screen.SetZone zone world
@@ -538,7 +541,7 @@ type ExploreScreenDispatcher () =
           define Screen.MenuState None ]
 
     override this.Process (_, screen, world) =
-        let explore = Game.GetProgression world |> Progression.toExplore
+        let explore = Game.GetProgression world |> snd |> _.Explore
         let zone = screen.GetZone world
         do World.beginGroup Simulants.ExploreGroup.Name [] world
         do World.doSkyBox "SkyBox" [] world

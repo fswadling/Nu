@@ -2,6 +2,7 @@
 
 open Nu
 open GameQuest3DImNui
+open Prime
 
 // this is a plugin for the Nu game engine that directs the execution of your application and editor
 type MyGamePlugin () =
@@ -9,11 +10,13 @@ type MyGamePlugin () =
 
     // this exposes different editing modes in the editor
     override this.EditModes =
+        let progressionEvents, stateMachine = Progression.initial
+        let state = StateMachine.toState stateMachine
         Map.ofList
             [("Start",
                 fun world -> 
                     do Game.SetIsTextCrawlScreen1InUse true world
-                    do Game.SetProgression Progression.initial world
+                    do Game.SetProgression (progressionEvents, state)  world
                     ())]
 
     // this specifies which packages are automatically loaded at game start-up.

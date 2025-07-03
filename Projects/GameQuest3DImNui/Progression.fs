@@ -113,7 +113,7 @@ module Progression =
           Explore: ExploreState
           Battle: Battle }
 
-    module private ProgressionState =
+    module ProgressionState =
         let empty = 
             { State = GameOver
               TextCrawl = "", v3Zero
@@ -511,13 +511,13 @@ module Progression =
 module MyGameExtensions =
     type Game with
         member this.GetProgression 
-            world : Progression.Progression =
+            world : ProgressionEvent FQueue * ProgressionState =
             this.Get
                 (nameof Game.Progression)
                 world
 
         member this.SetProgression
-            (value : Progression.Progression)
+            (value : ProgressionEvent FQueue * ProgressionState)
             (world: World) =
             this.Set
                 (nameof Game.Progression)

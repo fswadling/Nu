@@ -367,6 +367,11 @@ module StateMachine =
         (stateMachine: StateMachine<'TEvent, 'TState, 'TResult>) =
         reprocess' Seq.empty state2Events stateMachine
 
+    let toState stateMachine =
+        match stateMachine with
+        | Yield (sm, _) -> sm
+        | _ -> failwith "Failed to get state"
+
     type StateMachineBuilder() =
         [<DebuggerStepThrough>]
         member _.Bind(m, f) =

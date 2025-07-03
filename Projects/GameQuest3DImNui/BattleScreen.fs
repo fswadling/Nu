@@ -155,9 +155,13 @@ type BattleScreenDispatcher () =
                   world
 
         | WinBattle ->
-            let gameState = Game.GetProgression world
-            let nextState = Progression.doEvent gameState (Progression.BattleDone model.Battle.BattleTag)
-            do Game.SetProgression nextState world
+            let progressionEvents, _ = Game.GetProgression world
+            let _, sm = Progression.initial
+            let sm = StateMachine.zip progressionEvents sm
+            let progression = progressionEvents, sm
+            let nextEvents, sm = Progression.doEvent progression (Progression.BattleDone model.Battle.BattleTag)
+            let state = StateMachine.toState sm
+            do Game.SetProgression (nextEvents, state) world
 
     override this.Content(model, _) =
         [ Content.group Simulants.BattleGroup.Name []
