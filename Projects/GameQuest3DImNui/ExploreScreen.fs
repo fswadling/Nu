@@ -313,18 +313,8 @@ type ExploreScreenDispatcher () =
         | Active (positionedActor, interaction) ->
             // Upon encountering a progression event in the interaction,
             // apply and move on.
-            let progressionEvents = Game.GetProgressionEvents world
-            let currentProgression = StateMachine.zip progressionEvents (snd Progression.initial)
-
-            let interaction, (newProgressionEvents, newStateMachine) =
-                Progression.doInteraction
-                    interaction
-                    (progressionEvents, currentProgression)
-
-            let state = StateMachine.toState newStateMachine
+            let interaction = Game.DoProgressionWithInteraction interaction world
             let interactionState = Active (positionedActor, interaction)
-            do Game.SetProgressionEvents (newProgressionEvents) world
-            do Game.SetProgressionState state world
             do screen.SetInteraction interactionState world
         | _ ->
             ()

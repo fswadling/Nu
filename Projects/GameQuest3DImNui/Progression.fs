@@ -131,75 +131,6 @@ module Progression =
             | _ ->
                 { folded with State = state}
 
-    type Progression =
-        ProgressionEvent FQueue *
-        StateMachine<ProgressionEvent, ProgressionState, unit>
-
-    let isMainMenu ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ State = MainMenu },_) -> true
-        | _ -> false
-
-    let isExplore ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ State = Explore _ },_) -> true
-        | _ -> false
-
-    let toExplore ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ Explore = explore }, _) -> explore
-        | _ -> failwith "Invalid state"
-
-    let isTextCrawl ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ State = TextCrawl _ }, _) -> true
-        | _ -> false
-
-    let toTextCrawl ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ TextCrawl = (text, labelSize) },_) -> text, labelSize
-        | _ -> failwith "Invalid state"
-
-    let doTextCrawl (state: Progression) = 
-        match state with
-        | events, Yield ({ State = TextCrawl (text,_) }, sm) ->
-            (FQueue.conj (TextCrawlDone text) events),
-            sm (TextCrawlDone text)
-        | _ -> failwith "Invalid state"
-
-    let doEvent (state: Progression) event
-        : Progression = 
-        match state with
-        | events, Yield (_, sm) ->
-            (FQueue.conj event events), sm event
-        | _ -> failwith "Invalid state"
-
-    let isBattle ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ State = Battle _ }, _) -> true
-        | _ -> false
-
-    let toBattle ((_, stateMachine): Progression) = 
-        match stateMachine with
-        | Yield ({ Battle = battle },_) -> battle
-        | _ -> failwith "Invalid state"
-
-    let isGameOver ((_, stateMachine): Progression) =
-        match stateMachine with
-        | Yield ({ State = GameOver },_) -> true
-        | _ -> false
-
-    let rec doInteraction
-        (interaction: Interaction)
-        (state: Progression) =
-        match state, interaction with
-        | (events, Yield (_, progression)),
-          (Yield (Progress event, interactionContinuation)) ->
-            let state = (FQueue.conj event events), progression event
-            let interaction = interactionContinuation ProgressionDone
-            doInteraction interaction state
-        | _ -> interaction, state
-
     type private StatefulEvent = 
         { Event: ProgressionEvent
           CompanionsRecruited: Companion Set
@@ -337,8 +268,7 @@ module Progression =
         | Explore e -> Explore { e with InvisibleWalls = invisibleWalls }
         | e -> e
 
-    let initial: Progression =
-        FQueue.empty,
+    let initial =
         stateMachine {
             do! textCrawl "SwadTech Games Present" (v3 200f 32f 0f)
 
@@ -507,8 +437,19 @@ module Progression =
         |> StateMachine.unfoldEvent StatefulEvent.fold StatefulEvent.empty
         |> StateMachine.foldState ProgressionState.empty ProgressionState.fold
 
+    
+
 [<AutoOpen>]
 module MyGameExtensions =
+    let rec private doInteraction (interaction: Interaction) state =
+        match state, interaction with
+        | (events, Yield (_, progression)),
+          (Yield (Progress event, interactionContinuation)) ->
+            let state = (FQueue.conj event events), progression event
+            let interaction = interactionContinuation ProgressionDone
+            doInteraction interaction state
+        | _ -> interaction, state
+
     type Game with
         member this.GetProgressionEvents world : ProgressionEvent FQueue = this.Get (nameof Game.ProgressionEvents) world
         member this.SetProgressionEvents (value : ProgressionEvent FQueue) (world: World) = this.Set (nameof Game.ProgressionEvents) value world
@@ -520,9 +461,17 @@ module MyGameExtensions =
 
         member this.DoProgressionEvent event world : unit =
             let events = this.GetProgressionEvents world
-            let _, initialStateMachine = Progression.initial
             let newEvents = FQueue.conj event events
-            let newStateMachine = StateMachine.zip newEvents initialStateMachine
+            let newStateMachine = StateMachine.zip newEvents Progression.initial
             let state = StateMachine.toState newStateMachine
             do this.SetProgressionEvents newEvents world
             do this.SetProgressionState state world
+
+        member this.DoProgressionWithInteraction (interaction: Interaction) world: Interaction =
+            let events = this.GetProgressionEvents world
+            let newStateMachine = StateMachine.zip events Progression.initial
+            let newInteraction, (newEvents, newStateMachine) = doInteraction interaction (events, newStateMachine)
+            let newState = StateMachine.toState newStateMachine
+            do this.SetProgressionEvents newEvents world
+            do this.SetProgressionState newState world
+            newInteraction

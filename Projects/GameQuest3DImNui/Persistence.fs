@@ -58,6 +58,6 @@ module Persistence =
         scvalue<PersistenceState> text
 
     let toProgression (persistenceState: PersistenceState) =
-        let _, sm = Progression.initial
+        let sm = Progression.initial
         let sm = StateMachine.zip persistenceState.Events sm
         persistenceState.Events, sm

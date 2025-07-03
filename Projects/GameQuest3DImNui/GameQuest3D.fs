@@ -241,9 +241,8 @@ type GameQuest3DDispatcher () =
         do World.endScreen world
 
     static member Properties =
-        let progressionEvents, stateMachine = Progression.initial
-        let state = StateMachine.toState stateMachine
-        [ define Game.ProgressionEvents progressionEvents
+        let state = StateMachine.toState Progression.initial
+        [ define Game.ProgressionEvents FQueue.empty
           define Game.ProgressionState state
           define Game.IsTextCrawlScreen1InUse true ]
 
