@@ -38,8 +38,8 @@ type RendererProcess =
         abstract RenderStaticModelSurfaceFast : Matrix4x4 inref * bool * Presence * Box2 voption * MaterialProperties inref * Material inref * StaticModel AssetTag * int * DepthTest * RenderType * RenderPass -> unit
         
         /// Potential fast-path for rendering animated models.
-        abstract RenderAnimatedModelFast : Matrix4x4 inref * bool * Presence * Box2 voption * MaterialProperties inref * Matrix4x4 array * AnimatedModel AssetTag * Map<int, single> * int Set * DepthTest * RenderType * RenderPass -> unit
-        
+        abstract RenderAnimatedModelFast : Matrix4x4 inref * bool * Presence * Box2 voption * MaterialProperties inref * Matrix4x4 array * AnimatedModel AssetTag * Map<int, single> * int Set * DepthTest * RenderType * RenderPass * Dictionary<string array, (int array * single array)> -> unit
+
         /// Enqueue a 2d rendering message.
         abstract EnqueueMessage2d : RenderMessage2d -> unit
         
@@ -148,9 +148,9 @@ type RendererInline () =
             | Some _ -> messages3d.Add (RenderStaticModelSurface { ModelMatrix = modelMatrix; CastShadow = castShadow; Presence = presence; InsetOpt = Option.ofValueOption insetOpt; MaterialProperties = materialProperties; Material = material; StaticModel = staticModel; SurfaceIndex = surfaceIndex; DepthTest = depthTest; RenderType = renderType; RenderPass = renderPass })
             | None -> raise (InvalidOperationException "Renderers are not yet or are no longer valid.")
 
-        member ri.RenderAnimatedModelFast (modelMatrix, castShadow, presence, insetOpt, materialProperties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass) =
+        member ri.RenderAnimatedModelFast (modelMatrix, castShadow, presence, insetOpt, materialProperties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass, morphWeights) =
             match dependenciesOpt with
-            | Some _ -> messages3d.Add (RenderAnimatedModel { ModelMatrix = modelMatrix; CastShadow = castShadow; Presence = presence; InsetOpt = Option.ofValueOption insetOpt; MaterialProperties = materialProperties; BoneTransforms = boneTransforms; AnimatedModel = animatedModel; SubsortOffsets = subsortOffsets; DualRenderedSurfaceIndices = drsIndices; DepthTest = depthTest; RenderType = renderType; RenderPass = renderPass })
+            | Some _ -> messages3d.Add (RenderAnimatedModel { ModelMatrix = modelMatrix; CastShadow = castShadow; Presence = presence; InsetOpt = Option.ofValueOption insetOpt; MaterialProperties = materialProperties; BoneTransforms = boneTransforms; AnimatedModel = animatedModel; SubsortOffsets = subsortOffsets; DualRenderedSurfaceIndices = drsIndices; DepthTest = depthTest; RenderType = renderType; RenderPass = renderPass; MorphWeights = morphWeights })
             | None -> raise (InvalidOperationException "Renderers are not yet or are no longer valid.")
 
         member ri.EnqueueMessage2d message =
@@ -336,7 +336,8 @@ type RendererThread () =
                           CachedAnimatedModelDualRenderedSurfaceIndices = Unchecked.defaultof<_>
                           CachedAnimatedModelDepthTest = Unchecked.defaultof<_>
                           CachedAnimatedModelRenderType = Unchecked.defaultof<_>
-                          CachedAnimatedModelRenderPass = Unchecked.defaultof<_> }
+                          CachedAnimatedModelRenderPass = Unchecked.defaultof<_>
+                          CachedAnimatedModelMorphWeights = Unchecked.defaultof<_> }
                     let cachedAnimatedModelMessage = RenderCachedAnimatedModel animatedModelDescriptor
                     cachedAnimatedModelMessages.Enqueue cachedAnimatedModelMessage
                 cachedAnimatedModelMessagesCapacity <- cachedAnimatedModelMessagesCapacity * 2
@@ -598,7 +599,8 @@ type RendererThread () =
                 messageBuffers3d.[messageBufferIndex].Add cachedStaticModelSurfaceMessage
             | _ -> failwithumf ()
 
-        member rt.RenderAnimatedModelFast (modelMatrix, castShadow, presence, insetOpt, materialProperties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass) =
+            
+        member rt.RenderAnimatedModelFast (modelMatrix, castShadow, presence, insetOpt, materialProperties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass, morphWeights) =
             if Option.isNone threadOpt then raise (InvalidOperationException "Render process not yet started or already terminated.")
             let cachedAnimatedModelMessage = allocAnimatedModelMessage ()
             match cachedAnimatedModelMessage with
@@ -615,6 +617,7 @@ type RendererThread () =
                 cachedMessage.CachedAnimatedModelDepthTest <- depthTest
                 cachedMessage.CachedAnimatedModelRenderType <- renderType
                 cachedMessage.CachedAnimatedModelRenderPass <- renderPass
+                cachedMessage.CachedAnimatedModelMorphWeights <- morphWeights
                 messageBuffers3d.[messageBufferIndex].Add cachedAnimatedModelMessage
             | _ -> failwithumf ()
 

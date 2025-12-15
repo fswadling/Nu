@@ -137,7 +137,8 @@ module PhysicallyBased =
           mutable TrianglesCached : Vector3 array option
           VertexBuffer : uint
           InstanceBuffer : uint
-          IndexBuffer : uint }
+          IndexBuffer : uint
+          MorphDeltasTexture : uint }
 
         /// Lazily access triangles, building them from Vertices and Indices if needed.
         member this.Triangles =
@@ -497,7 +498,11 @@ module PhysicallyBased =
           LightsCountUniform : int
           ShadowNearUniform : int
           ShadowMatricesUniforms : int array
-          PhysicallyBasedShader : uint }
+          PhysicallyBasedShader : uint
+          MorphDeltasTextureUniform: int
+          MorphIndexUniforms: int array
+          MorphWeightUniforms: int array
+          MorphCountUniform: int }
 
     /// Describes a physically-based deferred terrain shader that's loaded into GPU.
     type PhysicallyBasedDeferredTerrainShader =
@@ -1523,10 +1528,27 @@ module PhysicallyBased =
                                 vertexData.[vertexOffset+8+lowest] <- single boneIndex
                                 vertexData.[vertexOffset+12+lowest] <- weight
                         | ValueNone -> failwithumf ()
-                                
+
+        let morphDeltaData = Array.zeroCreate<single> (mesh.Vertices.Count * mesh.MeshAnimationAttachmentCount * 3)
+        for maaIndex in 0 .. dec mesh.MeshAnimationAttachmentCount do
+            let attachment = mesh.MeshAnimationAttachments.[maaIndex]
+            for vertexIndex in 0 .. dec attachment.Vertices.Count do
+                let baseV = mesh.Vertices.[vertexIndex]
+                let morphV = attachment.Vertices.[vertexIndex]
+
+                // compute delta
+                let dx = morphV.X - baseV.X
+                let dy = morphV.Y - baseV.Y
+                let dz = morphV.Z - baseV.Z
+
+                // pack row-major: (vertex × numMorphs + morph) * 3
+                let offset = (vertexIndex * mesh.MeshAnimationAttachmentCount + maaIndex) * 3
+                morphDeltaData.[offset]     <- dx
+                morphDeltaData.[offset + 1] <- dy
+                morphDeltaData.[offset + 2] <- dz
 
         // fin
-        (vertexData, indexData, bounds)
+        (vertexData, indexData, bounds, morphDeltaData, mesh.Vertices.Count, mesh.MeshAnimationAttachmentCount)
 
     /// Create a mesh for a physically-based quad.
     let CreatePhysicallyBasedQuadMesh () =
@@ -1793,7 +1815,8 @@ module PhysicallyBased =
               TrianglesCached = None
               VertexBuffer = vertexBuffer
               InstanceBuffer = instanceBuffer
-              IndexBuffer = indexBuffer }
+              IndexBuffer = indexBuffer
+              MorphDeltasTexture = 0u }
 
         // fin
         geometry
@@ -1873,10 +1896,10 @@ module PhysicallyBased =
         vao
 
     /// Create physically-based animated geometry from a mesh.
-    let CreatePhysicallyBasedAnimatedGeometry (renderable, primitiveType, vertexData : single Memory, indexData : int Memory, bounds) =
+    let CreatePhysicallyBasedAnimatedGeometry (renderable, primitiveType, vertexData : single Memory, indexData : int Memory, bounds, morphDeltasData: single Memory, vertexCount, morphDeltasCount) =
 
         // make buffers
-        let (vertices, indices, vertexBuffer, instanceBuffer, indexBuffer) =
+        let (vertices, indices, vertexBuffer, instanceBuffer, indexBuffer, morphDeltasTexture) =
 
             // make renderable
             if renderable then
@@ -1909,8 +1932,26 @@ module PhysicallyBased =
                     Gl.BufferData (BufferTarget.ElementArrayBuffer, indexDataSize, indexDataNint, BufferUsage.StaticDraw)
                 Hl.Assert ()
 
+                // create morph deltas texture
+                let morphDeltasTex = Gl.GenTexture()
+                Gl.BindTexture(TextureTarget.Texture2d, morphDeltasTex)
+                
+                // set sampler parameters (important for integer texelFetch)
+                Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, int TextureMinFilter.Nearest)
+                Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, int TextureMagFilter.Nearest)
+                Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapS, int TextureWrapMode.ClampToEdge)
+                Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapT, int TextureWrapMode.ClampToEdge)
+
+                // pin and upload morph data
+                use morphDeltasDataHnd = morphDeltasData.Pin() in
+                    let morphDeltasDataNint = morphDeltasDataHnd.Pointer |> NativePtr.ofVoidPtr<single> |> NativePtr.toNativeInt
+                    Gl.TexImage2D(TextureTarget.Texture2d, 0, InternalFormat.Rgb32f, morphDeltasCount, vertexCount, 0, PixelFormat.Rgb, PixelType.Float, morphDeltasDataNint)
+                Hl.Assert ()
+                // unbind
+                Gl.BindTexture(TextureTarget.Texture2d, 0u)
+
                 // fin
-                ([||], [||], vertexBuffer, instanceBuffer, indexBuffer)
+                ([||], [||], vertexBuffer, instanceBuffer, indexBuffer, morphDeltasTex)
 
             // fake buffers
             else
@@ -1927,7 +1968,7 @@ module PhysicallyBased =
                 let indices = indexData.ToArray ()
 
                 // fin
-                (vertices, indices, 0u, 0u, 0u)
+                (vertices, indices, 0u, 0u, 0u, 0u)
 
         // make physically-based geometry
         let geometry =
@@ -1939,7 +1980,8 @@ module PhysicallyBased =
               TrianglesCached = None
               VertexBuffer = vertexBuffer
               InstanceBuffer = instanceBuffer
-              IndexBuffer = indexBuffer }
+              IndexBuffer = indexBuffer
+              MorphDeltasTexture = morphDeltasTexture }
 
         // fin
         geometry
@@ -1947,7 +1989,7 @@ module PhysicallyBased =
     /// Create physically-based animated geometry from an assimp mesh.
     let CreatePhysicallyBasedAnimatedGeometryFromMesh (renderable, indexData, mesh : Assimp.Mesh) =
         match CreatePhysicallyBasedAnimatedMesh (indexData, mesh) with
-        | (vertexData, indexData, bounds) -> CreatePhysicallyBasedAnimatedGeometry (renderable, PrimitiveType.Triangles, vertexData.AsMemory (), indexData.AsMemory (), bounds)
+        | (vertexData, indexData, bounds, morphDeltasData, verticesCount, morphDeltasCount) -> CreatePhysicallyBasedAnimatedGeometry (renderable, PrimitiveType.Triangles, vertexData.AsMemory (), indexData.AsMemory (), bounds, morphDeltasData.AsMemory (), verticesCount, morphDeltasCount)
 
     let TerrainTexCoordsOffset =    (3 (*position*)) * sizeof<single>
     let TerrainNormalOffset =       (3 (*position*) + 2 (*tex coords*)) * sizeof<single>
@@ -2084,7 +2126,8 @@ module PhysicallyBased =
               TrianglesCached = None
               VertexBuffer = vertexBuffer
               InstanceBuffer = instanceBuffer
-              IndexBuffer = indexBuffer }
+              IndexBuffer = indexBuffer
+              MorphDeltasTexture = 0u }
 
         // fin
         geometry
@@ -2227,6 +2270,15 @@ module PhysicallyBased =
         let brdfTextureUniform = Gl.GetUniformLocation (shader, "brdfTexture")
         let irradianceMapUniform = Gl.GetUniformLocation (shader, "irradianceMap")
         let environmentFilterMapUniform = Gl.GetUniformLocation (shader, "environmentFilterMap")
+        let morphDeltasTextureUniform = Gl.GetUniformLocation (shader, "morphDeltasTexture")
+        let morphIndexUniforms =
+            Array.init Constants.Render.MorphsMax $ fun i ->
+                Gl.GetUniformLocation (shader, "morphIndices[" + string i + "]")
+        let morphWeightUniforms =
+            Array.init Constants.Render.MorphsMax $ fun i ->
+                Gl.GetUniformLocation (shader, "morphWeights[" + string i + "]")
+        let morphCountUniform = Gl.GetUniformLocation (shader, "morphCount")
+
         let irradianceMapsUniforms =
             Array.init lightMapsMax $ fun i ->
                 Gl.GetUniformLocation (shader, "irradianceMaps[" + string i + "]")
@@ -2381,7 +2433,11 @@ module PhysicallyBased =
           LightsCountUniform = lightsCountUniform
           ShadowNearUniform = shadowNearUniform
           ShadowMatricesUniforms = shadowMatricesUniforms
-          PhysicallyBasedShader = shader }
+          PhysicallyBasedShader = shader
+          MorphDeltasTextureUniform = morphDeltasTextureUniform
+          MorphIndexUniforms = morphIndexUniforms
+          MorphWeightUniforms = morphWeightUniforms
+          MorphCountUniform = morphCountUniform }
 
     /// Create a physically-based terrain shader.
     let CreatePhysicallyBasedTerrainShader (shaderFilePath : string) =
@@ -3761,6 +3817,8 @@ module PhysicallyBased =
          projection : single array,
          viewProjection : single array,
          bones : single array array,
+         morphIndices: int array,
+         morphWeights: single array,
          eyeCenter : Vector3,
          surfacesCount : int,
          instanceFields : single array,
@@ -3817,6 +3875,12 @@ module PhysicallyBased =
             Gl.Uniform1 (shader.ClearCoatTextureUniform, 10)
             Gl.Uniform1 (shader.ClearCoatRoughnessTextureUniform, 11)
             Gl.Uniform1 (shader.ClearCoatNormalTextureUniform, 12)
+            Gl.Uniform1 (shader.MorphDeltasTextureUniform, 13)
+            Gl.Uniform1 (shader.MorphCountUniform, morphIndices.Length)
+            for i in 0 .. dec (min Constants.Render.MorphsMax morphIndices.Length) do
+                Gl.Uniform1 (shader.MorphIndexUniforms.[i], morphIndices.[i])
+            for i in 0 .. dec (min Constants.Render.MorphsMax morphWeights.Length) do
+                Gl.Uniform1 (shader.MorphWeightUniforms.[i], morphWeights.[i])
             Hl.Assert ()
 
         // only set up uniforms when there is a surface to render to avoid potentially utilizing destroyed textures
@@ -3849,6 +3913,8 @@ module PhysicallyBased =
             Gl.BindTexture (TextureTarget.Texture2d, material.ClearCoatRoughnessTexture.TextureId)
             Gl.ActiveTexture TextureUnit.Texture12
             Gl.BindTexture (TextureTarget.Texture2d, material.ClearCoatNormalTexture.TextureId)
+            Gl.ActiveTexture TextureUnit.Texture13
+            Gl.BindTexture (TextureTarget.Texture2d, geometry.MorphDeltasTexture)
             Hl.Assert ()
 
             // update instance buffer

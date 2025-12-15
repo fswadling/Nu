@@ -1,6 +1,9 @@
 #shader vertex
 #version 460 core
 
+// how many morphs we support at once
+const int MAX_MORPHS = 16;
+
 const int TEX_COORDS_OFFSET_VERTS = 6;
 const int BONES_MAX = 128;
 const int BONES_INFLUENCE_MAX = 4;
@@ -27,6 +30,10 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform mat4 viewProjection;
 uniform mat4 bones[BONES_MAX];
+uniform int morphIndices[MAX_MORPHS]; 
+uniform float morphWeights[MAX_MORPHS];
+uniform int morphCount;
+uniform sampler2D morphDeltasTexture;
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 texCoords;
@@ -52,6 +59,21 @@ flat out vec4 clearCoatPlusOut;
 
 void main()
 {
+    // start with base vertex position
+    vec3 morphedPos = position;
+
+    // accumulate deltas
+    for (int i = 0; i < morphCount; ++i)
+    {
+        int morphIndex = morphIndices[i];
+        float w = morphWeights[i];
+
+        // fetch delta for this morphIndex and this vertex
+        vec3 delta = texelFetch(morphDeltasTexture, ivec2(morphIndex, gl_VertexID), 0).xyz;
+
+        morphedPos += delta * w;
+    }
+
     // compute blended bone influences
     mat4 boneBlended = mat4(0.0);
     for (int i = 0; i < BONES_INFLUENCE_MAX; ++i)
@@ -61,7 +83,7 @@ void main()
     }
 
     // compute blended position and normal
-    vec4 positionBlended = boneBlended * vec4(position, 1.0);
+    vec4 positionBlended = boneBlended * vec4(morphedPos, 1.0);
     vec4 normalBlended = boneBlended * vec4(normal, 0.0);
 
     // compute remaining values

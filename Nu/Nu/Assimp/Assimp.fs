@@ -6,6 +6,7 @@
 
 namespace Nu
 open System
+open System.Collections
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Numerics
@@ -191,6 +192,48 @@ module Assimp =
             start + single factor * delta
         else scalingKeys.[0].Value
 
+    let internal InterpolateMorphWeights (animationTime : single, targetCount: int, channel: Assimp.MeshMorphAnimationChannel) =
+        // find bracketing keys
+        let mutable i = 0
+        let mutable lastTime = single channel.MeshMorphKeys.[inc i].Time
+        while i < dec channel.MeshMorphKeyCount && lastTime < animationTime do
+            i <- inc i
+            lastTime <- single channel.MeshMorphKeys.[inc i].Time
+        let k0 = channel.MeshMorphKeys.[i]
+        let k1 = channel.MeshMorphKeys.[min (inc i) (dec channel.MeshMorphKeyCount)]
+        let t0 = single k0.Time
+        let t1 = single k1.Time
+        
+        let factor =
+            if t0 = t1 then 0.0f
+            else (animationTime - t0) / (t1 - t0)
+
+        // expand sparse → dense
+        let dense0 = Array.zeroCreate<single> targetCount
+        for j=0 to k0.Values.Count-1 do
+            let idx = k0.Values.[j]
+            if idx >= 0 && idx < targetCount then
+                dense0.[idx] <- single k0.Weights.[j]
+
+        let dense1 = Array.zeroCreate<single> targetCount
+        for j=0 to k1.Values.Count-1 do
+            let idx = k1.Values.[j]
+            if idx >= 0 && idx < targetCount then
+                dense1.[idx] <- single k1.Weights.[j]
+
+        // interpolate dense arrays element-wise
+        let mutable activeIndices = ResizeArray<int>(targetCount)
+        let mutable activeWeights = ResizeArray<single>(targetCount)
+        for j=0 to targetCount-1 do
+            let a = dense0.[j]
+            let b = dense1.[j]
+            let w = a + (b - a) * factor
+            if abs w > 0.0001f then
+                activeIndices.Add j
+                activeWeights.Add w
+
+        activeIndices.ToArray(), activeWeights.ToArray()
+
 [<AutoOpen>]
 module AssimpExtensions =
 
@@ -271,6 +314,9 @@ module AssimpExtensions =
               Weight = weight }
 
     let private AnimationChannelsCached =
+        ConcurrentDictionary<_, _> HashIdentity.Reference
+
+    let private MeshAnimationChannelsCached =
         ConcurrentDictionary<_, _> HashIdentity.Reference
 
     type Assimp.Quaternion with
@@ -773,6 +819,117 @@ module AssimpExtensions =
                 boneOffsets.[i] <- Assimp.ExportMatrix boneInfo.BoneOffset
                 boneTransforms.[i] <- Assimp.ExportMatrix boneInfo.BoneTransform
             (boneIds, boneOffsets, boneTransforms)
+
+        member this.ComputeConstantMorphs (morphs: (int * single) array) =
+            let indexes, weights = Array.unzip morphs
+            let nodes =
+                this.RootNode.Map([||], m4Identity, fun node names _ ->
+                    if (node.MeshIndices.Count = 0) then
+                        TreeNode ([||])
+                    else
+
+                    let fstMeshIndex = node.MeshIndices.[0]
+                    let fstMesh = this.Meshes.[fstMeshIndex]
+                    let numTargets = fstMesh.MeshAnimationAttachmentCount
+
+                    if (numTargets = 0) then
+                        TreeNode ([||])
+                    else
+
+                    TreeNode [| (names, indexes, weights) |])
+
+            let stringArrayEqualityComparer : IEqualityComparer<string[]> =
+                { new IEqualityComparer<string[]> with
+                    member _.Equals(x, y) =
+                        StructuralComparisons.StructuralEqualityComparer.Equals(x, y)
+
+                    member _.GetHashCode(x) =
+                        StructuralComparisons.StructuralEqualityComparer.GetHashCode(x) }
+
+            let morphWeights = nodes.Flatten()
+            let morphTargets =
+                morphWeights
+                |> Seq.choose (function | [| names, ids, weights |] when ids.Length > 0 -> Some (names, (ids, weights)) | _ -> None)
+                |> dictPlus stringArrayEqualityComparer
+
+            morphTargets
+
+        // Not working as cant export multiple morphs
+        member this.ComputeActiveMorphs (time : GameTime, animations : Animation array) =
+
+            let mutable meshAnimChannels = Unchecked.defaultof<_>
+            if not (MeshAnimationChannelsCached.TryGetValue (this, &meshAnimChannels)) then
+                meshAnimChannels <- dictPlus (AnimationChannelKeyComparer ()) []
+                for animation in this.Animations do
+                    for channel in animation.MeshMorphAnimationChannels do
+                        meshAnimChannels.[AnimationChannelKey.make animation.Name channel.Name] <- channel
+                MeshAnimationChannelsCached.[this] <- meshAnimChannels
+
+            let nodes =
+                this.RootNode.Map([||], m4Identity, fun node names _ -> 
+                    if (node.MeshIndices.Count = 0) then
+                        TreeNode ([||])
+                    else
+
+                    let fstMeshIndex = node.MeshIndices.[0]
+                    let fstMesh = this.Meshes.[fstMeshIndex]
+                    let numTargets = fstMesh.MeshAnimationAttachmentCount
+                    let mutable activeWeights = Array.init numTargets (fun _ -> ResizeArray<single>(animations.Length))
+
+                    for animation in animations do
+                        let animationKey = AnimationChannelKey.make animation.Name node.Name
+                        let mutable animationChannel = Unchecked.defaultof<_>
+                        if meshAnimChannels.TryGetValue(animationKey, &animationChannel) then
+                            let animationStartTime = animation.StartTime.Seconds
+                            let animationLifeTimeOpt = Option.map (fun (lifeTime : GameTime) -> lifeTime.Seconds) animation.LifeTimeOpt
+
+                            let localTime = max 0.0f (single (time.Seconds - animationStartTime))
+                            if  (match animationLifeTimeOpt with Some lifeTime -> localTime < (single (animationStartTime + lifeTime)) | None -> true) then
+                                let localTimeScaled =
+                                    match animation.Playback with
+                                    | Once ->
+                                        localTime * animation.Rate * Constants.Render.AnimatedModelRateScalar
+                                    | Loop ->
+                                        let length = single animationChannel.MeshMorphKeys.[dec animationChannel.MeshMorphKeyCount].Time
+                                        localTime * animation.Rate * Constants.Render.AnimatedModelRateScalar % length
+                                    | Bounce ->
+                                        let length = single animationChannel.MeshMorphKeys.[dec animationChannel.MeshMorphKeyCount].Time
+                                        let localTimeScaled = localTime * animation.Rate * Constants.Render.AnimatedModelRateScalar
+                                        let remainingTime = localTimeScaled % length
+                                        if int (localTimeScaled / length) % 2 = 1
+                                        then length - remainingTime
+                                        else remainingTime
+
+                                let indexes, weights = Assimp.InterpolateMorphWeights (localTimeScaled, numTargets, animationChannel)
+                                for i in 0 .. (dec indexes.Length) do
+                                    do activeWeights.[indexes.[i]].Add (weights.[i])
+
+                    let morphWeights =
+                       activeWeights
+                       |> Seq.mapi (fun i l -> i, l.ToArray())
+                       |> Seq.filter (fun (i, l) -> l.Length > 0)
+                       |> Seq.map (fun (i, l) -> i, Array.average l)
+
+                    let ids = morphWeights |> Seq.map fst |> Array.ofSeq
+                    let weights = morphWeights |> Seq.map snd |> Array.ofSeq
+
+                    TreeNode [| (names, ids, weights) |])
+
+            let stringArrayEqualityComparer : IEqualityComparer<string[]> =
+                { new IEqualityComparer<string[]> with
+                    member _.Equals(x, y) =
+                        StructuralComparisons.StructuralEqualityComparer.Equals(x, y)
+
+                    member _.GetHashCode(x) =
+                        StructuralComparisons.StructuralEqualityComparer.GetHashCode(x) }
+
+            let morphWeights = nodes.Flatten()
+            let morphTargets =
+                morphWeights
+                |> Seq.choose (function | [| names, ids, weights |] when ids.Length > 0 -> Some (names, (ids, weights)) | _ -> None)
+                |> dictPlus stringArrayEqualityComparer
+
+            morphTargets
 
 [<RequireQualifiedAccess>]
 module AssimpContext =

@@ -421,7 +421,8 @@ type CachedAnimatedModelMessage =
       mutable CachedAnimatedModelDualRenderedSurfaceIndices : int Set
       mutable CachedAnimatedModelDepthTest : DepthTest
       mutable CachedAnimatedModelRenderType : RenderType
-      mutable CachedAnimatedModelRenderPass : RenderPass }        
+      mutable CachedAnimatedModelRenderPass : RenderPass
+      mutable CachedAnimatedModelMorphWeights : Dictionary<string array, (int array * single array)> }
 
 /// Describes a static model surface.
 type StaticModelSurfaceDescriptor =
@@ -607,7 +608,8 @@ type RenderAnimatedModel =
       DualRenderedSurfaceIndices : int Set
       DepthTest : DepthTest
       RenderType : RenderType
-      RenderPass : RenderPass }
+      RenderPass : RenderPass
+      MorphWeights: Dictionary<string array, (int array * single array)> }
 
 /// Describes how to render multiple animated models with shared attributes.
 type RenderAnimatedModels =
@@ -618,7 +620,8 @@ type RenderAnimatedModels =
       DualRenderedSurfaceIndices : int Set
       DepthTest : DepthTest
       RenderType : RenderType
-      RenderPass : RenderPass }
+      RenderPass : RenderPass
+      MorphWeights: Dictionary<string array, (int array * single array)> }
 
 /// Describes how to render a user-defined static model.
 type RenderUserDefinedStaticModel =
@@ -1027,6 +1030,7 @@ type private SortableLight =
 /// Enables efficient comparison of animated model surfaces.
 type [<CustomEquality; NoComparison; Struct>] private AnimatedModelSurfaceKey =
     { BoneTransforms : Matrix4x4 array
+      MorphWeights : int array * single array
       AnimatedSurface : OpenGL.PhysicallyBased.PhysicallyBasedSurface }
 
     static member hash amsKey =
@@ -2616,6 +2620,7 @@ type [<ReferenceEquality>] GlRenderer3d =
          drsIndices : int Set,
          depthTest : DepthTest,
          renderType : RenderType,
+         morphWeights: Dictionary<string array, (int array * single array)>,
          renderTasks : RenderTasks,
          renderer) =
 
@@ -2648,7 +2653,12 @@ type [<ReferenceEquality>] GlRenderer3d =
 
                     // deferred render animated surface when needed
                     if renderType = DeferredRenderType || dualRendering then
-                        let animatedModelSurfaceKey = { BoneTransforms = boneTransforms; AnimatedSurface = surface }
+                        let nodeNames = surface.SurfaceNames |> Array.filter (fun name -> not (name.StartsWith("Geometry")))
+                        let morphWeights = 
+                            match morphWeights.TryGetValue nodeNames with
+                            | (true, morphWeights) -> morphWeights
+                            | (false, _) -> ([||], [||])
+                        let animatedModelSurfaceKey = { BoneTransforms = boneTransforms; MorphWeights = morphWeights; AnimatedSurface = surface }
                         match renderTasks.DeferredAnimated.TryGetValue animatedModelSurfaceKey with
                         | (true, renderOps) -> renderOps.Add struct (model, castShadow, presence, texCoordsOffset, properties)
                         | (false, _) -> renderTasks.DeferredAnimated.Add (animatedModelSurfaceKey, List ([struct (model, castShadow, presence, texCoordsOffset, properties)]))
@@ -2679,6 +2689,7 @@ type [<ReferenceEquality>] GlRenderer3d =
          drsIndices : int Set,
          depthTest : DepthTest,
          renderType : RenderType,
+         morphWeights: Dictionary<string array, (int array * single array)>,
          renderTasks : RenderTasks,
          renderer) =
 
@@ -2711,7 +2722,8 @@ type [<ReferenceEquality>] GlRenderer3d =
 
                         // deferred render animated surface when needed
                         if renderType = DeferredRenderType then
-                            let animatedModelSurfaceKey = { BoneTransforms = boneTransforms; AnimatedSurface = surface }
+                            let morphWeights = morphWeights.[surface.SurfaceNames]
+                            let animatedModelSurfaceKey = { BoneTransforms = boneTransforms; MorphWeights = morphWeights; AnimatedSurface = surface }
                             match renderTasks.DeferredAnimated.TryGetValue animatedModelSurfaceKey with
                             | (true, renderOps) -> renderOps.Add struct (model, castShadow, presence, texCoordsOffset, properties)
                             | (false, _) -> renderTasks.DeferredAnimated.Add (animatedModelSurfaceKey, List ([struct (model, castShadow, presence, texCoordsOffset, properties)]))
@@ -2960,13 +2972,13 @@ type [<ReferenceEquality>] GlRenderer3d =
             | RenderAnimatedModel rsm ->
                 let insetOpt = Option.toValueOption rsm.InsetOpt
                 let renderTasks = GlRenderer3d.getRenderTasks rsm.RenderPass renderer
-                GlRenderer3d.categorizeAnimatedModel (&rsm.ModelMatrix, rsm.CastShadow, rsm.Presence, &insetOpt, &rsm.MaterialProperties, rsm.BoneTransforms, rsm.AnimatedModel, rsm.SubsortOffsets, rsm.DualRenderedSurfaceIndices, rsm.DepthTest, rsm.RenderType, renderTasks, renderer)
+                GlRenderer3d.categorizeAnimatedModel (&rsm.ModelMatrix, rsm.CastShadow, rsm.Presence, &insetOpt, &rsm.MaterialProperties, rsm.BoneTransforms, rsm.AnimatedModel, rsm.SubsortOffsets, rsm.DualRenderedSurfaceIndices, rsm.DepthTest, rsm.RenderType, rsm.MorphWeights, renderTasks, renderer)
             | RenderAnimatedModels rams ->
                 let renderTasks = GlRenderer3d.getRenderTasks rams.RenderPass renderer
-                GlRenderer3d.categorizeAnimatedModels (rams.AnimatedModels, rams.BoneTransforms, rams.AnimatedModel, rams.SubsortOffsets, rams.DualRenderedSurfaceIndices, rams.DepthTest, rams.RenderType, renderTasks, renderer)
+                GlRenderer3d.categorizeAnimatedModels (rams.AnimatedModels, rams.BoneTransforms, rams.AnimatedModel, rams.SubsortOffsets, rams.DualRenderedSurfaceIndices, rams.DepthTest, rams.RenderType, rams.MorphWeights, renderTasks, renderer)
             | RenderCachedAnimatedModel camm ->
                 let renderTasks = GlRenderer3d.getRenderTasks camm.CachedAnimatedModelRenderPass renderer
-                GlRenderer3d.categorizeAnimatedModel (&camm.CachedAnimatedModelMatrix, camm.CachedAnimatedModelCastShadow, camm.CachedAnimatedModelPresence, &camm.CachedAnimatedModelInsetOpt, &camm.CachedAnimatedModelMaterialProperties, camm.CachedAnimatedModelBoneTransforms, camm.CachedAnimatedModel, camm.CachedAnimatedModelSubsortOffsets, camm.CachedAnimatedModelDualRenderedSurfaceIndices, camm.CachedAnimatedModelDepthTest, camm.CachedAnimatedModelRenderType, renderTasks, renderer)
+                GlRenderer3d.categorizeAnimatedModel (&camm.CachedAnimatedModelMatrix, camm.CachedAnimatedModelCastShadow, camm.CachedAnimatedModelPresence, &camm.CachedAnimatedModelInsetOpt, &camm.CachedAnimatedModelMaterialProperties, camm.CachedAnimatedModelBoneTransforms, camm.CachedAnimatedModel, camm.CachedAnimatedModelSubsortOffsets, camm.CachedAnimatedModelDualRenderedSurfaceIndices, camm.CachedAnimatedModelDepthTest, camm.CachedAnimatedModelRenderType, camm.CachedAnimatedModelMorphWeights, renderTasks, renderer)
             | RenderTerrain rt ->
                 let renderTasks = GlRenderer3d.getRenderTasks rt.RenderPass renderer
                 GlRenderer3d.categorizeTerrain (rt.Visible, rt.TerrainDescriptor, renderTasks, renderer)
@@ -3033,7 +3045,7 @@ type [<ReferenceEquality>] GlRenderer3d =
              renderer.InstanceFields, renderer.LightingConfig.LightShadowExponent, surface.SurfaceMaterial, surface.PhysicallyBasedGeometry, shader, vao, vertexSize)
 
     static member private renderPhysicallyBasedDeferredSurfaces
-        batchPhase viewArray projectionArray viewProjectionArray bonesArray eyeCenter (parameters : struct (Matrix4x4 * bool * Presence * Box2 * MaterialProperties) List)
+        batchPhase viewArray projectionArray viewProjectionArray bonesArray morphIndices morphWeights eyeCenter (parameters : struct (Matrix4x4 * bool * Presence * Box2 * MaterialProperties) List)
         lightShadowSamples lightShadowBias lightShadowSampleScalar lightShadowExponent lightShadowDensity (surface : OpenGL.PhysicallyBased.PhysicallyBasedSurface) shader vao vertexSize renderer =
                                                                       
         // ensure we have a large enough instance fields array
@@ -3082,12 +3094,12 @@ type [<ReferenceEquality>] GlRenderer3d =
 
         // draw deferred surfaces
         OpenGL.PhysicallyBased.DrawPhysicallyBasedDeferredSurfaces
-            (batchPhase, viewArray, projectionArray, viewProjectionArray, bonesArray, eyeCenter,
+            (batchPhase, viewArray, projectionArray, viewProjectionArray, bonesArray, morphIndices, morphWeights, eyeCenter,
              parameters.Count, renderer.InstanceFields, lightShadowSamples, lightShadowBias, lightShadowSampleScalar, lightShadowExponent, lightShadowDensity, surface.SurfaceMaterial, surface.PhysicallyBasedGeometry, shader, vao, vertexSize)
 
     static member private renderPhysicallyBasedDeferredSurfacePreBatch
         frustumInterior frustumExterior frustumImposter renderPass
-        viewArray projectionArray viewProjectionArray bonesArray eyeCenter (parameters : (Matrix4x4 * bool * Presence * Box2 * MaterialProperties * Box3) array)
+        viewArray projectionArray viewProjectionArray bonesArray morphIndices morphWeights eyeCenter (parameters : (Matrix4x4 * bool * Presence * Box2 * MaterialProperties * Box3) array)
         lightShadowSamples lightShadowBias lightShadowSampleScalar lightShadowExponent lightShadowDensity (surface : OpenGL.PhysicallyBased.PhysicallyBasedSurface) shader vao vertexSize renderer =
 
         // ensure we have a large enough instance fields array
@@ -3147,7 +3159,7 @@ type [<ReferenceEquality>] GlRenderer3d =
 
         // draw deferred surfaces
         OpenGL.PhysicallyBased.DrawPhysicallyBasedDeferredSurfaces
-            (SingletonPhase, viewArray, projectionArray, viewProjectionArray, bonesArray, eyeCenter,
+            (SingletonPhase, viewArray, projectionArray, viewProjectionArray, bonesArray, morphIndices, morphWeights, eyeCenter,
              i, renderer.InstanceFields, lightShadowSamples, lightShadowBias, lightShadowSampleScalar, lightShadowExponent, lightShadowDensity, surface.SurfaceMaterial, surface.PhysicallyBasedGeometry, shader, vao, vertexSize)
 
     static member private beginPhysicallyBasedForwardShader
@@ -3764,7 +3776,7 @@ type [<ReferenceEquality>] GlRenderer3d =
                 | 1 -> SingletonPhase
                 | count -> if i = 0 then StartingPhase elif i = dec count then StoppingPhase else ResumingPhase
             GlRenderer3d.renderPhysicallyBasedDeferredSurfaces
-                batchPhase viewArray geometryProjectionArray geometryViewProjectionArray [||] eyeCenter entry.Value
+                batchPhase viewArray geometryProjectionArray geometryViewProjectionArray [||] [||] [||] eyeCenter entry.Value
                 renderer.LightingConfig.LightShadowSamples renderer.LightingConfig.LightShadowBias renderer.LightingConfig.LightShadowSampleScalar renderer.LightingConfig.LightShadowExponent renderer.LightingConfig.LightShadowDensity
                 entry.Key renderer.PhysicallyBasedShaders.DeferredStaticShader renderer.PhysicallyBasedStaticVao OpenGL.PhysicallyBased.StaticVertexSize renderer
             OpenGL.Hl.Assert ()
@@ -3775,7 +3787,7 @@ type [<ReferenceEquality>] GlRenderer3d =
             let struct (surface, preBatch) = entry.Value
             GlRenderer3d.renderPhysicallyBasedDeferredSurfacePreBatch
                 frustumInterior frustumExterior frustumImposter renderPass
-                viewArray geometryProjectionArray geometryViewProjectionArray [||] eyeCenter preBatch
+                viewArray geometryProjectionArray geometryViewProjectionArray [||] [||] [||] eyeCenter preBatch
                 renderer.LightingConfig.LightShadowSamples renderer.LightingConfig.LightShadowBias renderer.LightingConfig.LightShadowSampleScalar renderer.LightingConfig.LightShadowExponent renderer.LightingConfig.LightShadowDensity
                 surface renderer.PhysicallyBasedShaders.DeferredStaticShader renderer.PhysicallyBasedStaticVao OpenGL.PhysicallyBased.StaticVertexSize renderer
             OpenGL.Hl.Assert ()
@@ -3788,7 +3800,7 @@ type [<ReferenceEquality>] GlRenderer3d =
                 | 1 -> SingletonPhase
                 | count -> if i = 0 then StartingPhase elif i = dec count then StoppingPhase else ResumingPhase
             GlRenderer3d.renderPhysicallyBasedDeferredSurfaces
-                batchPhase viewArray geometryProjectionArray geometryViewProjectionArray [||] eyeCenter entry.Value
+                batchPhase viewArray geometryProjectionArray geometryViewProjectionArray [||] [||] [||] eyeCenter entry.Value
                 renderer.LightingConfig.LightShadowSamples renderer.LightingConfig.LightShadowBias renderer.LightingConfig.LightShadowSampleScalar renderer.LightingConfig.LightShadowExponent renderer.LightingConfig.LightShadowDensity
                 entry.Key renderer.PhysicallyBasedShaders.DeferredStaticClippedShader renderer.PhysicallyBasedStaticVao OpenGL.PhysicallyBased.StaticVertexSize renderer
             OpenGL.Hl.Assert ()
@@ -3799,7 +3811,7 @@ type [<ReferenceEquality>] GlRenderer3d =
             let struct (surface, preBatch) = entry.Value
             GlRenderer3d.renderPhysicallyBasedDeferredSurfacePreBatch
                 frustumInterior frustumExterior frustumImposter renderPass
-                viewArray geometryProjectionArray geometryViewProjectionArray [||] eyeCenter preBatch
+                viewArray geometryProjectionArray geometryViewProjectionArray [||] [||] [||] eyeCenter preBatch
                 renderer.LightingConfig.LightShadowSamples renderer.LightingConfig.LightShadowBias renderer.LightingConfig.LightShadowSampleScalar renderer.LightingConfig.LightShadowExponent renderer.LightingConfig.LightShadowDensity
                 surface renderer.PhysicallyBasedShaders.DeferredStaticClippedShader renderer.PhysicallyBasedStaticVao OpenGL.PhysicallyBased.StaticVertexSize renderer
             OpenGL.Hl.Assert ()
@@ -3808,12 +3820,13 @@ type [<ReferenceEquality>] GlRenderer3d =
         for entry in renderTasks.DeferredAnimated do
             let surfaceKey = entry.Key
             let parameters = entry.Value
+            let morphIndices, morphWeights = surfaceKey.MorphWeights
             let bonesArrays = Array.zeroCreate surfaceKey.BoneTransforms.Length
             for i in 0 .. dec surfaceKey.BoneTransforms.Length do
                 let boneArray = surfaceKey.BoneTransforms.[i].ToArray ()
                 bonesArrays.[i] <- boneArray
             GlRenderer3d.renderPhysicallyBasedDeferredSurfaces
-                SingletonPhase viewArray geometryProjectionArray geometryViewProjectionArray bonesArrays eyeCenter parameters
+                SingletonPhase viewArray geometryProjectionArray geometryViewProjectionArray bonesArrays morphIndices morphWeights eyeCenter parameters
                 renderer.LightingConfig.LightShadowSamples renderer.LightingConfig.LightShadowBias renderer.LightingConfig.LightShadowSampleScalar renderer.LightingConfig.LightShadowExponent renderer.LightingConfig.LightShadowDensity
                 surfaceKey.AnimatedSurface renderer.PhysicallyBasedShaders.DeferredAnimatedShader renderer.PhysicallyBasedAnimatedVao OpenGL.PhysicallyBased.AnimatedVertexSize renderer
             OpenGL.Hl.Assert ()

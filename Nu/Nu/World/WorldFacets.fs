@@ -3423,9 +3423,15 @@ module AnimatedModelFacetExtensions =
         member this.GetBoneTransformsOpt world : Matrix4x4 array option = this.Get (nameof this.BoneTransformsOpt) world
         member this.SetBoneTransformsOpt (value : Matrix4x4 array option) world = this.Set (nameof this.BoneTransformsOpt) value world
         member this.BoneTransformsOpt = lens (nameof this.BoneTransformsOpt) this this.GetBoneTransformsOpt this.SetBoneTransformsOpt
+        member this.MorphWeightsOpt = lens (nameof this.MorphWeightsOpt) this this.GetMorphWeightsOpt this.SetMorphWeightsOpt
+        member this.GetMorphWeightsOpt world : Dictionary<string array, (int array * single array)> option = this.Get (nameof this.MorphWeightsOpt) world
+        member this.SetMorphWeightsOpt (value: Dictionary<string array, (int array * single array)> option) world = this.Set (nameof this.MorphWeightsOpt) value world
         member this.GetUseJobGraph world : bool = this.Get (nameof this.UseJobGraph) world
         member this.SetUseJobGraph (value : bool) world = this.Set (nameof this.UseJobGraph) value world
         member this.UseJobGraph = lens (nameof this.UseJobGraph) this this.GetUseJobGraph this.SetUseJobGraph
+        member this.GetMorphs world : (int * single) array = this.Get (nameof Entity.Morphs) world
+        member this.SetMorphs (value: (int * single) array) world = this.Set (nameof Entity.Morphs) value world
+        member this.Morphs = lens (nameof Entity.Morphs) this this.GetMorphs this.SetMorphs
 
         /// Set the bone transforms via a fast path.
         /// OPTIMIZATION: this function sets these properties without comparison or events. Unfortunately, F# forces
@@ -3436,6 +3442,11 @@ module AnimatedModelFacetExtensions =
             let entityState = EntityState.setProperty (nameof Entity.BoneIdsOpt) { PropertyType = typeof<Dictionary<string, int> option>; PropertyValue = Some boneIds } entityState
             let entityState = EntityState.setProperty (nameof Entity.BoneOffsetsOpt) { PropertyType = typeof<Matrix4x4 array option>; PropertyValue = Some boneOffsets } entityState
             let entityState = EntityState.setProperty (nameof Entity.BoneTransformsOpt) { PropertyType = typeof<Matrix4x4 array option>; PropertyValue = Some boneTransforms } entityState
+            World.setEntityState entityState this world
+
+        member this.SetMorphTargetsFast morphWeights world =
+            let entityState = World.getEntityState this world
+            let entityState = EntityState.setProperty (nameof Entity.MorphWeightsOpt) { PropertyType = typeof<Dictionary<string array, (int array * single array)> option>; PropertyValue = Some morphWeights } entityState
             World.setEntityState entityState this world
 
         /// Attempt to get the bone ids, offsets, and transforms from an entity that supports boned models.
@@ -3466,6 +3477,20 @@ module AnimatedModelFacetExtensions =
                 Some (boneIds, boneOffsets, boneTransforms)
             | Some _ | None -> None
 
+        member this.TryComputeMorphTargets time animations (sceneOpt : Assimp.Scene option) =
+            match sceneOpt with
+            | Some scene when scene.Meshes.Count > 0 ->
+                scene.ComputeActiveMorphs (time, animations)
+                |> Some
+            | Some _ | None -> None
+
+        member this.TryConstantMorphTargets morphs (sceneOpt : Assimp.Scene option) =
+            match sceneOpt with
+            | Some scene when scene.Meshes.Count > 0 ->
+                scene.ComputeConstantMorphs morphs
+                |> Some
+            | Some _ | None -> None
+
         /// TODO: document this!
         member this.AnimateBones (world : World) =
             let time = world.GameTime
@@ -3474,6 +3499,14 @@ module AnimatedModelFacetExtensions =
             let sceneOpt = match Metadata.tryGetAnimatedModelMetadata animatedModel with ValueSome model -> model.SceneOpt | ValueNone -> None
             match this.TryComputeBoneTransforms time animations sceneOpt with
             | Some (boneIds, boneOffsets, boneTransforms) -> this.SetBoneTransformsFast boneIds boneOffsets boneTransforms world
+            | None -> ()
+
+        member this.AnimateMorphs (world : World) =
+            let animatedModel = this.GetAnimatedModel world
+            let morphs = this.GetMorphs world
+            let sceneOpt = match Metadata.tryGetAnimatedModelMetadata animatedModel with ValueSome model -> model.SceneOpt | ValueNone -> None
+            match this.TryConstantMorphTargets morphs sceneOpt with
+            | Some (morphWeights) -> this.SetMorphTargetsFast morphWeights world
             | None -> ()
 
 /// Augments an entity with an animated model.
@@ -3489,44 +3522,68 @@ type AnimatedModelFacet () =
          define Entity.DualRenderedSurfaceIndices Set.empty
          define Entity.DepthTest LessThanTest
          define Entity.RenderStyle Deferred
+         define Entity.Morphs [||]
          nonPersistent Entity.BoneIdsOpt None
          nonPersistent Entity.BoneOffsetsOpt None
          nonPersistent Entity.BoneTransformsOpt None
+         nonPersistent Entity.MorphWeightsOpt None
          define Entity.UseJobGraph true]
 
     override this.Register (entity, world) =
         entity.AnimateBones world
+        entity.AnimateMorphs world
         World.sense
             (fun evt world ->
                 let playBox = fst' (World.getPlayBounds3d world)
                 let outsidePlayBounds = entity.GetPresence world <> Omnipresent && not (entity.GetAlwaysUpdate world) && not (playBox.Intersects (evt.Subscriber.GetBounds world))
                 let disabled = not (entity.GetEnabled world)
                 let notUpdating = world.Halted || outsidePlayBounds || disabled
-                if notUpdating then evt.Subscriber.AnimateBones world
+                if notUpdating 
+                then 
+                    evt.Subscriber.AnimateBones world
+                    evt.Subscriber.AnimateMorphs world
                 Cascade)
             (entity.ChangeEvent (nameof entity.Animations)) entity (nameof AnimatedModelFacet) world
-        World.sense (fun evt world -> evt.Subscriber.AnimateBones world; Cascade) (entity.ChangeEvent (nameof entity.AnimatedModel)) entity (nameof AnimatedModelFacet) world
-        World.sense (fun evt world -> evt.Subscriber.AnimateBones world; Cascade) Game.AssetsReloadEvent entity (nameof AnimatedModelFacet) world
+        World.sense (fun evt world ->
+            evt.Subscriber.AnimateBones world
+            evt.Subscriber.AnimateMorphs world
+            Cascade) (entity.ChangeEvent (nameof entity.AnimatedModel)) entity (nameof AnimatedModelFacet) world
+        World.sense (fun evt world ->
+            evt.Subscriber.AnimateBones world
+            evt.Subscriber.AnimateMorphs world
+            Cascade) Game.AssetsReloadEvent entity (nameof AnimatedModelFacet) world
 
     override this.Update (entity, world) =
         if entity.GetEnabled world then
             let time = world.GameTime
             let animations = entity.GetAnimations world
             let animatedModel = entity.GetAnimatedModel world
+            let morphs = entity.GetMorphs world
             let sceneOpt = match Metadata.tryGetAnimatedModelMetadata animatedModel with ValueSome model -> model.SceneOpt | ValueNone -> None
-            let resultOpt =
+            let resultOpt, morphsOpt =
                 if entity.GetUseJobGraph world then
-                    let resultOpt =
+                    let resultOpt, morphsOpt =
                         match World.tryAwaitJob (world.DateTime + TimeSpan.FromSeconds 0.001) (entity, nameof AnimatedModelFacet) world with
-                        | Some (JobCompletion (_, _, (:? ((Dictionary<string, int> * Matrix4x4 array * Matrix4x4 array) option) as boneOffsetsAndTransformsOpt))) -> boneOffsetsAndTransformsOpt
-                        | _ -> None
-                    let job = Job.make (entity, nameof AnimatedModelFacet) (fun () -> entity.TryComputeBoneTransforms time animations sceneOpt)
+                        | Some (JobCompletion (_, _, (:? ((Dictionary<string, int> * Matrix4x4 array * Matrix4x4 array) option * (Dictionary<string array, (int array * single array)> option)) as boneOffsetsAndTransformsOpt))) -> boneOffsetsAndTransformsOpt
+                        | _ -> None, None
+                    let job =
+                        Job.make
+                            (entity, nameof AnimatedModelFacet) 
+                            (fun () -> 
+                                entity.TryComputeBoneTransforms time animations sceneOpt,
+                                entity.TryConstantMorphTargets morphs sceneOpt)
                     World.enqueueJob 1.0f job world
-                    resultOpt
-                else entity.TryComputeBoneTransforms time animations sceneOpt
-            match resultOpt with
-            | Some (boneIds, boneOffsets, boneTransforms) -> entity.SetBoneTransformsFast boneIds boneOffsets boneTransforms world
-            | None -> ()
+                    resultOpt, morphsOpt
+                else
+                    entity.TryComputeBoneTransforms time animations sceneOpt,
+                    entity.TryConstantMorphTargets morphs sceneOpt
+
+            do match resultOpt with
+               | Some (boneIds, boneOffsets, boneTransforms) -> entity.SetBoneTransformsFast boneIds boneOffsets boneTransforms world
+               | None -> ()
+            do match morphsOpt with
+               | Some morphsDict -> entity.SetMorphTargetsFast morphsDict world
+               | None -> ()
         else
             let animations =
                 Array.map (fun (animation : Animation) ->
@@ -3550,9 +3607,9 @@ type AnimatedModelFacet () =
                 match entity.GetRenderStyle world with
                 | Deferred -> DeferredRenderType
                 | Forward (subsort, sort) -> ForwardRenderType (subsort, sort)
-            match entity.GetBoneTransformsOpt world with
-            | Some boneTransforms -> World.renderAnimatedModelFast (&affineMatrix, castShadow, presence, insetOpt, &properties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass, world)
-            | None -> ()
+            match entity.GetBoneTransformsOpt world, entity.GetMorphWeightsOpt world with
+            | Some boneTransforms, Some morphWeights -> World.renderAnimatedModelFast (&affineMatrix, castShadow, presence, insetOpt, &properties, boneTransforms, animatedModel, subsortOffsets, drsIndices, depthTest, renderType, renderPass, morphWeights, world)
+            | _,_ -> ()
 
     override this.GetAttributesInferred (entity, world) =
         let animatedModel = entity.GetAnimatedModel world
