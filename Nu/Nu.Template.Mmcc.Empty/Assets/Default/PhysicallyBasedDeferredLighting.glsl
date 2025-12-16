@@ -15,6 +15,10 @@ void main()
 #shader fragment
 #version 460 core
 
+const float TOON_DARKER = 0.2;
+const float TOON_DARK = 0.5;
+const float TOON_LIGHT = 1.0;
+
 const float PI = 3.141592654;
 const float PI_OVER_2 = PI / 2.0;
 const float ATTENUATION_CONSTANT = 1.0;
@@ -28,6 +32,8 @@ const float SHADOW_CASCADE_SEAM_INSET = 0.005;
 const float SHADOW_CASCADE_DENSITY_BONUS = 0.5;
 const float SHADOW_FOV_MAX = 2.1;
 const float CLEAR_COAT_REFRACTIVE_INDEX = 1.5; // typical for automotive clear coat
+const uint FLAG_UNLIT = 1u << 0;
+const uint FLAG_TOON = 1u << 1;
 
 uniform vec3 eyeCenter;
 uniform mat4 view;
@@ -48,6 +54,7 @@ uniform sampler2D normalPlusTexture;
 uniform sampler2D subdermalPlusTexture;
 uniform sampler2D scatterPlusTexture;
 uniform sampler2D clearCoatPlusTexture;
+uniform usampler2D flagsTexture;
 uniform sampler2DArray shadowTextures;
 uniform samplerCube shadowMaps[SHADOW_MAPS_MAX];
 uniform sampler2DArray shadowCascades[SHADOW_CASCADES_MAX];
@@ -451,12 +458,12 @@ vec3 computeSubsurfaceScatter(vec4 position, vec3 albedo, vec4 subdermalPlus, ve
         // tunable parameters
         const float density = 8.0; // absorption coefficient
         const vec3 waxTint = vec3(1.0, 0.94, 0.85); // warm tint
-        const float g = 0.2; // Henyey–Greenstein anisotropy (0 = isotropic, >0 = forward bias)
+        const float g = 0.2; // Henyeyï¿½Greenstein anisotropy (0 = isotropic, >0 = forward bias)
 
-        // attenuation by travel distance (Beer–Lambert law)
+        // attenuation by travel distance (Beerï¿½Lambert law)
         vec3 attenuation = exp(-travel * density * finenessSquared * scatter.rgb);
 
-        // Henyey–Greenstein phase function for angular dependence
+        // Henyeyï¿½Greenstein phase function for angular dependence
         float cosTheta = clamp(nDotL, -1.0, 1.0);
         float denom = 1.0 + g * g - 2.0 * g * cosTheta;
         float phase = (1.0 - g * g) / (4.0 * PI * pow(denom, 1.5));
@@ -485,12 +492,69 @@ void main()
         vec3 albedo = texture(albedoTexture, texCoordsOut).rgb;
         vec4 material = texture(materialTexture, texCoordsOut);
         vec3 normal = normalize(texture(normalPlusTexture, texCoordsOut).xyz);
+    uint flags = texture(flagsTexture, texCoordsOut).r;
         vec4 subdermalPlus = vec4(0.0);
         vec4 scatterPlus = vec4(0.0);
         if (sssEnabled == 1)
         {
             subdermalPlus = texture(subdermalPlusTexture, texCoordsOut);
             scatterPlus = texture(scatterPlusTexture, texCoordsOut);
+    }
+
+    // short circuit the lighting if unlit flag is present
+    if ((flags & FLAG_UNLIT) != 0u)
+    {
+        lightAccum = vec4(albedo, 1);
+
+        // Zero out other buffers (optional depending on your renderer)
+        fogAccum = vec4(0.0);
+        return;
+    }
+
+    // short circuit the lighting if toon flag is present
+    if ((flags & FLAG_TOON) != 0u)
+    {
+        // Step 1: Build a combined light direction
+        vec3 combinedLightDir = vec3(0.0);
+        float totalWeight = 0.0;
+    
+        for (int i = 0; i < lightsCount; ++i)
+        {
+            // Direction: -lightDir for directional, vector to light for others
+            vec3 lightDir = (lightTypes[i] == 2 || lightTypes[i] == 3)
+                              ? -lightDirections[i]
+                              : normalize(lightOrigins[i] - position.xyz);
+    
+            float weight = 1.0;
+            if (lightTypes[i] != 2 && lightTypes[i] != 3) {
+                float dist = length(lightOrigins[i] - position.xyz);
+                weight = 1.0 / (dist * dist + 1.0); // falloff weight
+            }
+    
+            combinedLightDir += weight * lightDir;
+            totalWeight += weight;
+        }
+    
+        if (totalWeight > 0.0)
+            combinedLightDir = normalize(combinedLightDir / totalWeight);
+        else
+            combinedLightDir = normalize(vec3(0.5, 1.0, 0.2)); // fallback
+    
+        // Step 2: Compute brightness bands
+        float nDotL = max(dot(normalize(normal), combinedLightDir), 0.0);
+    
+        float toonBrightness;
+        if (nDotL < TOON_DARKER)      toonBrightness = TOON_DARKER;
+        else if (nDotL < TOON_DARK)   toonBrightness = TOON_DARK;
+        else                          toonBrightness = TOON_LIGHT;
+    
+        // Step 3: Apply to albedo
+        vec3 toonColor = albedo * toonBrightness;
+    
+        // Step 4: Output and early return
+        lightAccum = vec4(toonColor, 1.0);
+        fogAccum   = vec4(0.0);
+        return;
         }
 
         // compute materials

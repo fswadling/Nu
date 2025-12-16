@@ -88,9 +88,11 @@ type [<SymbolicExpansion>] MaterialProperties =
       SpecularScalarOpt : single voption // forward only
       SubsurfaceCutoffOpt : single voption // forward only
       SubsurfaceCutoffMarginOpt : single voption // forward only
-      RefractiveIndexOpt : single voption // forward only
+      RefractiveIndexOpt : single voption
       ClearCoatOpt : single voption // deferred only - TODO: consider implementing for forward surfaces as well.
-      ClearCoatRoughnessOpt : single voption } // deferred only - TODO: same as above.
+      ClearCoatRoughnessOpt : single voption // deferred only - TODO: same as above.
+      IsUnlit : bool
+      IsToon : bool }
 
     member this.Albedo = ValueOption.defaultValue Constants.Render.AlbedoDefault this.AlbedoOpt
     member this.Roughness = ValueOption.defaultValue Constants.Render.RoughnessDefault this.RoughnessOpt
@@ -130,7 +132,9 @@ module MaterialProperties =
           SubsurfaceCutoffMarginOpt = ValueSome Constants.Render.SubsurfaceCutoffMarginDefault
           RefractiveIndexOpt = ValueSome Constants.Render.RefractiveIndexDefault
           ClearCoatOpt = ValueSome Constants.Render.ClearCoatDefault
-          ClearCoatRoughnessOpt = ValueSome Constants.Render.ClearCoatRoughnessDefault }
+          ClearCoatRoughnessOpt = ValueSome Constants.Render.ClearCoatRoughnessDefault
+          IsUnlit = false
+          IsToon = false }
 
     /// Empty material properties.
     let empty =
@@ -149,7 +153,9 @@ module MaterialProperties =
           SubsurfaceCutoffMarginOpt = ValueNone
           RefractiveIndexOpt = ValueNone
           ClearCoatOpt = ValueNone
-          ClearCoatRoughnessOpt = ValueNone }
+          ClearCoatRoughnessOpt = ValueNone
+          IsUnlit = false
+          IsToon = false }
 
 /// Material description for surfaces.
 type [<SymbolicExpansion; CustomEquality; NoComparison>] Material =
@@ -3073,6 +3079,12 @@ type [<ReferenceEquality>] GlRenderer3d =
             let scatterType = match properties.ScatterTypeOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ScatterType
             let clearCoat = match properties.ClearCoatOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ClearCoat
             let clearCoatRoughness = match properties.ClearCoatRoughnessOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ClearCoatRoughness
+
+            let mutable flags = 0
+            if properties.IsUnlit then do flags <- flags ||| (1 <<< 0)
+            if properties.IsToon then do flags <- flags ||| (1 <<< 1)
+            let flags = System.BitConverter.Int32BitsToSingle flags
+
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20] <- albedo.R
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 1] <- albedo.G
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 2] <- albedo.B
@@ -3091,6 +3103,9 @@ type [<ReferenceEquality>] GlRenderer3d =
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 35] <- 0.0f // free
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 36] <- clearCoat
             renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 37] <- clearCoatRoughness
+            renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 38] <- 0.0f // free
+            renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 39] <- 0.0f // free
+            renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 40] <- flags
 
         // draw deferred surfaces
         OpenGL.PhysicallyBased.DrawPhysicallyBasedDeferredSurfaces
@@ -3137,6 +3152,11 @@ type [<ReferenceEquality>] GlRenderer3d =
                 let scatterType = match properties.ScatterTypeOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ScatterType
                 let clearCoat = match properties.ClearCoatOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ClearCoat
                 let clearCoatRoughness = match properties.ClearCoatRoughnessOpt with ValueSome value -> value | ValueNone -> surface.SurfaceMaterialProperties.ClearCoatRoughness
+
+                let mutable flags = 0
+                if properties.IsUnlit then do flags <- flags ||| (1 <<< 0)
+                let flags = System.BitConverter.Int32BitsToSingle flags
+
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20] <- albedo.R
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 1] <- albedo.G
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 20 + 2] <- albedo.B
@@ -3155,6 +3175,9 @@ type [<ReferenceEquality>] GlRenderer3d =
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 35] <- 0.0f // free
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 36] <- clearCoat
                 renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 37] <- clearCoatRoughness
+                renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 38] <- 0.0f // free
+                renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 39] <- 0.0f // free
+                renderer.InstanceFields.[i * Constants.Render.InstanceFieldCount + 40] <- flags
                 i <- inc i
 
         // draw deferred surfaces
@@ -3760,7 +3783,7 @@ type [<ReferenceEquality>] GlRenderer3d =
 
         // setup geometry buffer and viewport
         let geometryResolution = renderer.GeometryViewport.Bounds.Size
-        let (depthTexture, albedoTexture, materialTexture, normalPlusTexture, subdermalPlusTexture, scatterPlusTexture, clearCoatPlusTexture, geometryRenderbuffer, geometryFramebuffer) = renderer.PhysicallyBasedBuffers.GeometryBuffers
+        let (depthTexture, albedoTexture, materialTexture, normalPlusTexture, subdermalPlusTexture, scatterPlusTexture, clearCoatPlusTexture, flagsTexture, geometryRenderbuffer, geometryFramebuffer) = renderer.PhysicallyBasedBuffers.GeometryBuffers
         OpenGL.Gl.BindRenderbuffer (OpenGL.RenderbufferTarget.Renderbuffer, geometryRenderbuffer)
         OpenGL.Gl.BindFramebuffer (OpenGL.FramebufferTarget.Framebuffer, geometryFramebuffer)
         OpenGL.Gl.ClearColor (Constants.Render.ViewportClearColor.R, Constants.Render.ViewportClearColor.G, Constants.Render.ViewportClearColor.B, Constants.Render.ViewportClearColor.A)
@@ -3971,7 +3994,7 @@ type [<ReferenceEquality>] GlRenderer3d =
         OpenGL.PhysicallyBased.DrawPhysicallyBasedDeferredLightingSurface
             (eyeCenter, viewArray, viewInverseArray, geometryProjectionArray, geometryProjectionInverseArray, renderer.LightingConfig.LightCutoffMargin,
              renderer.LightingConfig.LightShadowSamples, renderer.LightingConfig.LightShadowBias, renderer.LightingConfig.LightShadowSampleScalar, renderer.LightingConfig.LightShadowExponent, renderer.LightingConfig.LightShadowDensity, sssEnabled,
-             depthTexture, albedoTexture, materialTexture, normalPlusTexture, subdermalPlusTexture, scatterPlusTexture, clearCoatPlusTexture, shadowTextureArray, shadowMaps, shadowCascades,
+             depthTexture, albedoTexture, materialTexture, normalPlusTexture, subdermalPlusTexture, scatterPlusTexture, clearCoatPlusTexture, flagsTexture, shadowTextureArray, shadowMaps, shadowCascades,
              lightOrigins, lightDirections, lightColors, lightBrightnesses, lightAttenuationLinears, lightAttenuationQuadratics, lightCutoffs, lightTypes, lightConeInners, lightConeOuters, lightShadowIndices, min lightIds.Length renderTasks.Lights.Count, shadowNear, shadowMatrices,
              renderer.PhysicallyBasedQuad, renderer.PhysicallyBasedShaders.DeferredLightingShader, renderer.PhysicallyBasedStaticVao)
         OpenGL.Hl.Assert ()

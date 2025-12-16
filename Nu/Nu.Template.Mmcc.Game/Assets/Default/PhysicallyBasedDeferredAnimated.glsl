@@ -47,6 +47,7 @@ layout(location = 11) in vec4 material;
 layout(location = 12) in vec4 heightPlus;
 layout(location = 13) in vec4 subsurfacePlus;
 layout(location = 14) in vec4 clearCoatPlus; // NOTE: z and w are free for additional parameters.
+layout(location = 15) in float flags;
 
 out vec4 positionOut;
 out vec2 texCoordsOut;
@@ -56,6 +57,7 @@ flat out vec4 materialOut;
 flat out vec4 heightPlusOut;
 flat out vec4 subsurfacePlusOut;
 flat out vec4 clearCoatPlusOut;
+flat out uint flagsOut;
 
 void main()
 {
@@ -99,6 +101,7 @@ void main()
     heightPlusOut = heightPlus;
     subsurfacePlusOut = subsurfacePlus;
     clearCoatPlusOut = clearCoatPlus;
+    flagsOut = floatBitsToUint(flags);
     gl_Position = viewProjection * positionOut;
 }
 
@@ -133,6 +136,7 @@ flat in vec4 materialOut;
 flat in vec4 heightPlusOut;
 flat in vec4 subsurfacePlusOut;
 flat in vec4 clearCoatPlusOut;
+flat in uint flagsOut;
 
 layout(location = 0) out float depth;
 layout(location = 1) out vec3 albedo;
@@ -141,6 +145,7 @@ layout(location = 3) out vec4 normalPlus;
 layout(location = 4) out vec4 subdermalPlus;
 layout(location = 5) out vec4 scatterPlus;
 layout(location = 6) out vec4 clearCoatPlus;
+layout(location = 7) out uint flagsBufferOut;
 
 // NOTE: algorithm from Chapter 16 of OpenGL Shading Language
 vec3 saturate(vec3 rgb, float adjustment)
@@ -264,4 +269,7 @@ void main()
         clearCoatPlus.g = clearCoatRoughness;
         clearCoatPlus.ba = encodeOctahedral(clearCoatNormal);
     }
+
+    // Set flags
+    flagsBufferOut = flagsOut;
 }

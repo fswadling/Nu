@@ -25,7 +25,7 @@ module PhysicallyBased =
           ShadowMapBuffersArray : (OpenGL.Texture.Texture * uint * uint) array
           ShadowCascadeArrayBuffersArray : (OpenGL.Texture.Texture * uint * uint) array
           ShadowCascadeFilterBuffersArray : (OpenGL.Texture.Texture * uint * uint) array
-          GeometryBuffers : OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * uint * uint
+          GeometryBuffers : OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * OpenGL.Texture.Texture * uint * uint
           LightMappingBuffers : OpenGL.Texture.Texture * uint * uint
           AmbientBuffers : OpenGL.Texture.Texture * uint * uint
           IrradianceBuffers : OpenGL.Texture.Texture * uint * uint
@@ -618,6 +618,7 @@ module PhysicallyBased =
           SubdermalPlusTextureUniform : int
           ScatterPlusTextureUniform : int
           ClearCoatPlusTextureUniform : int
+          FlagsTextureUniform : int
           ShadowTexturesUniform : int
           ShadowMapsUniforms : int array
           ShadowCascadesUniforms : int array
@@ -1721,6 +1722,7 @@ module PhysicallyBased =
         Gl.VertexArrayAttribFormat (vao, 10u, 4, VertexAttribType.Float, false, uint (28 * sizeof<single>))
         Gl.VertexArrayAttribFormat (vao, 11u, 4, VertexAttribType.Float, false, uint (32 * sizeof<single>))
         Gl.VertexArrayAttribFormat (vao, 12u, 4, VertexAttribType.Float, false, uint (36 * sizeof<single>))
+        Gl.VertexArrayAttribFormat (vao, 13u, 1, VertexAttribType.Float, false, uint (40 * sizeof<single>)) // flags
         Gl.VertexArrayAttribBinding (vao, 3u, 1u) // NOTE: different index for instance!
         Gl.VertexArrayAttribBinding (vao, 4u, 1u)
         Gl.VertexArrayAttribBinding (vao, 5u, 1u)
@@ -1731,6 +1733,7 @@ module PhysicallyBased =
         Gl.VertexArrayAttribBinding (vao, 10u, 1u)
         Gl.VertexArrayAttribBinding (vao, 11u, 1u)
         Gl.VertexArrayAttribBinding (vao, 12u, 1u)
+        Gl.VertexArrayAttribBinding(vao, 13u, 1u)
         Gl.EnableVertexArrayAttrib (vao, 3u)
         Gl.EnableVertexArrayAttrib (vao, 4u)
         Gl.EnableVertexArrayAttrib (vao, 5u)
@@ -1741,6 +1744,7 @@ module PhysicallyBased =
         Gl.EnableVertexArrayAttrib (vao, 10u)
         Gl.EnableVertexArrayAttrib (vao, 11u)
         Gl.EnableVertexArrayAttrib (vao, 12u)
+        Gl.EnableVertexArrayAttrib(vao, 13u)
 
         // divisors
         Gl.VertexArrayBindingDivisor (vao, 0u, 0u)
@@ -1867,6 +1871,7 @@ module PhysicallyBased =
         Gl.VertexArrayAttribFormat (vao, 12u, 4, VertexAttribType.Float, false, uint (28 * sizeof<single>))
         Gl.VertexArrayAttribFormat (vao, 13u, 4, VertexAttribType.Float, false, uint (32 * sizeof<single>))
         Gl.VertexArrayAttribFormat (vao, 14u, 4, VertexAttribType.Float, false, uint (36 * sizeof<single>))
+        Gl.VertexArrayAttribFormat (vao, 15u, 1, VertexAttribType.Float, false, uint (40 * sizeof<single>)) // flags
         Gl.VertexArrayAttribBinding (vao, 5u, 1u) // NOTE: different index for instance!
         Gl.VertexArrayAttribBinding (vao, 6u, 1u)
         Gl.VertexArrayAttribBinding (vao, 7u, 1u)
@@ -1877,6 +1882,7 @@ module PhysicallyBased =
         Gl.VertexArrayAttribBinding (vao, 12u, 1u)
         Gl.VertexArrayAttribBinding (vao, 13u, 1u)
         Gl.VertexArrayAttribBinding (vao, 14u, 1u)
+        Gl.VertexArrayAttribBinding (vao, 15u, 1u)
         Gl.EnableVertexArrayAttrib (vao, 5u)
         Gl.EnableVertexArrayAttrib (vao, 6u)
         Gl.EnableVertexArrayAttrib (vao, 7u)
@@ -1887,6 +1893,7 @@ module PhysicallyBased =
         Gl.EnableVertexArrayAttrib (vao, 12u)
         Gl.EnableVertexArrayAttrib (vao, 13u)
         Gl.EnableVertexArrayAttrib (vao, 14u)
+        Gl.EnableVertexArrayAttrib (vao, 15u)
 
         // divisors
         Gl.VertexArrayBindingDivisor (vao, 0u, 0u)
@@ -2706,6 +2713,7 @@ module PhysicallyBased =
         let subdermalPlusTextureUniform = Gl.GetUniformLocation (shader, "subdermalPlusTexture")
         let scatterPlusTextureUniform = Gl.GetUniformLocation (shader, "scatterPlusTexture")
         let clearCoatPlusTextureUniform = Gl.GetUniformLocation (shader, "clearCoatPlusTexture")
+        let flagsTextureUniform = Gl.GetUniformLocation (shader, "flagsTexture")
         let shadowTexturesUniform = Gl.GetUniformLocation (shader, "shadowTextures")
         let shadowMapsUniforms =
             Array.init Constants.Render.ShadowMapsMax $ fun i ->
@@ -2772,6 +2780,7 @@ module PhysicallyBased =
           SubdermalPlusTextureUniform = subdermalPlusTextureUniform
           ScatterPlusTextureUniform = scatterPlusTextureUniform
           ClearCoatPlusTextureUniform = clearCoatPlusTextureUniform
+          FlagsTextureUniform = flagsTextureUniform
           ShadowTexturesUniform = shadowTexturesUniform
           ShadowMapsUniforms = shadowMapsUniforms
           ShadowCascadesUniforms = shadowCascadesUniforms
@@ -4728,6 +4737,7 @@ module PhysicallyBased =
          subdermalPlusTexture : Texture.Texture,
          scatterPlusTexture : Texture.Texture,
          clearCoatPlusTexture : Texture.Texture,
+         flagsTexture : Texture.Texture,
          shadowTextureArray : Texture.Texture,
          shadowMaps : Texture.Texture array,
          shadowCascades : Texture.Texture array,
@@ -4774,11 +4784,12 @@ module PhysicallyBased =
         Gl.Uniform1 (shader.SubdermalPlusTextureUniform, 4)
         Gl.Uniform1 (shader.ScatterPlusTextureUniform, 5)
         Gl.Uniform1 (shader.ClearCoatPlusTextureUniform, 6)
-        Gl.Uniform1 (shader.ShadowTexturesUniform, 7)
+        Gl.Uniform1 (shader.FlagsTextureUniform, 7)
+        Gl.Uniform1 (shader.ShadowTexturesUniform, 8)
         for i in 0 .. dec Constants.Render.ShadowMapsMax do
-            Gl.Uniform1 (shader.ShadowMapsUniforms.[i], i + 8)
+            Gl.Uniform1 (shader.ShadowMapsUniforms.[i], i + 9)
         for i in 0 .. dec Constants.Render.ShadowCascadesMax do
-            Gl.Uniform1 (shader.ShadowCascadesUniforms.[i], i + 8 + Constants.Render.ShadowMapsMax)
+            Gl.Uniform1 (shader.ShadowCascadesUniforms.[i], i + 9 + Constants.Render.ShadowMapsMax)
         for i in 0 .. dec (min lightOrigins.Length Constants.Render.LightsMaxDeferred) do
             Gl.Uniform3 (shader.LightOriginsUniforms.[i], lightOrigins.[i].X, lightOrigins.[i].Y, lightOrigins.[i].Z)
         for i in 0 .. dec (min lightDirections.Length Constants.Render.LightsMaxDeferred) do
@@ -4823,12 +4834,14 @@ module PhysicallyBased =
         Gl.ActiveTexture TextureUnit.Texture6
         Gl.BindTexture (TextureTarget.Texture2d, clearCoatPlusTexture.TextureId)
         Gl.ActiveTexture (int TextureUnit.Texture0 + 7 |> Branchless.reinterpret)
+        Gl.BindTexture (TextureTarget.Texture2d, flagsTexture.TextureId)
+        Gl.ActiveTexture (int TextureUnit.Texture0 + 8 |> Branchless.reinterpret)
         Gl.BindTexture (TextureTarget.Texture2dArray, shadowTextureArray.TextureId)
         for i in 0 .. dec (min shadowMaps.Length Constants.Render.ShadowMapsMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 8 + i |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 9 + i |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.TextureCubeMap, shadowMaps.[i].TextureId)
         for i in 0 .. dec (min shadowCascades.Length Constants.Render.ShadowCascadesMax) do
-            Gl.ActiveTexture (int TextureUnit.Texture0 + 8 + i + Constants.Render.ShadowMapsMax |> Branchless.reinterpret)
+            Gl.ActiveTexture (int TextureUnit.Texture0 + 9 + i + Constants.Render.ShadowMapsMax |> Branchless.reinterpret)
             Gl.BindTexture (TextureTarget.Texture2dArray, shadowCascades.[i].TextureId)
         Hl.Assert ()
 

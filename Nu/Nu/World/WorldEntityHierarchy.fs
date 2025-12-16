@@ -144,7 +144,9 @@ module WorldEntityHierarchyExtensions =
                                   SubsurfaceCutoffMarginOpt = ValueSome subsurfaceCutoffMargin
                                   RefractiveIndexOpt = ValueSome refractiveIndex
                                   ClearCoatOpt = ValueSome clearCoat
-                                  ClearCoatRoughnessOpt = ValueSome clearCoatRoughness }
+                                  ClearCoatRoughnessOpt = ValueSome clearCoatRoughness
+                                  IsUnlit = false
+                                  IsToon = false }
                             child.SetMaterialProperties properties world
                             let material =
                                 if surfaceMaterialsPopulated then
