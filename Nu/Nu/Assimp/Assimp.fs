@@ -676,8 +676,9 @@ module AssimpExtensions =
                 let m_colorsField = (getType mesh).GetField ("m_colors", BindingFlags.Instance ||| BindingFlags.NonPublic)
                 m_colorsField.SetValue (mesh, Array.empty<Assimp.Color4D List>)
                 for attachment in mesh.MeshAnimationAttachments do
-                    let m_verticesField = (getType attachment).GetField ("m_vertices", BindingFlags.Instance ||| BindingFlags.NonPublic)
-                    m_verticesField.SetValue (attachment, List<Assimp.Vector3D> ())
+                    // NOTE: We no longer clear m_vertices because they're needed for morph target delta textures.
+                    // let m_verticesField = (getType attachment).GetField ("m_vertices", BindingFlags.Instance ||| BindingFlags.NonPublic)
+                    // m_verticesField.SetValue (attachment, List<Assimp.Vector3D> ())
                     let m_texCoordsField = (getType attachment).GetField ("m_texCoords", BindingFlags.Instance ||| BindingFlags.NonPublic)
                     m_texCoordsField.SetValue (attachment, Array.empty<Assimp.Vector3D List>)
                     let m_normalsField = (getType attachment).GetField ("m_normals", BindingFlags.Instance ||| BindingFlags.NonPublic)
@@ -907,7 +908,7 @@ module AssimpExtensions =
                     let morphWeights =
                        activeWeights
                        |> Seq.mapi (fun i l -> i, l.ToArray())
-                       |> Seq.filter (fun (i, l) -> l.Length > 0)
+                       |> Seq.filter (fun (_, l) -> l.Length > 0)
                        |> Seq.map (fun (i, l) -> i, Array.average l)
 
                     let ids = morphWeights |> Seq.map fst |> Array.ofSeq

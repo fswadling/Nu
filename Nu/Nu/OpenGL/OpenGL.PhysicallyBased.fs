@@ -1942,7 +1942,7 @@ module PhysicallyBased =
                 // create morph deltas texture
                 let morphDeltasTex = Gl.GenTexture()
                 Gl.BindTexture(TextureTarget.Texture2d, morphDeltasTex)
-                
+
                 // set sampler parameters (important for integer texelFetch)
                 Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, int TextureMinFilter.Nearest)
                 Gl.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, int TextureMagFilter.Nearest)
