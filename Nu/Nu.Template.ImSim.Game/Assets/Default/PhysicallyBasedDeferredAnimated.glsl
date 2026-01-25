@@ -5,7 +5,7 @@
 const int MAX_MORPHS = 16;
 
 const int TEX_COORDS_OFFSET_VERTS = 6;
-const int BONES_MAX = 170;
+const int BONES_MAX = 182;
 const int BONES_INFLUENCE_MAX = 4;
 
 const vec2 TEX_COORDS_OFFSET_FILTERS[TEX_COORDS_OFFSET_VERTS] =

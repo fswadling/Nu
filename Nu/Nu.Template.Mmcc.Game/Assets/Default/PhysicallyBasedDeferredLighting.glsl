@@ -492,69 +492,92 @@ void main()
         vec3 albedo = texture(albedoTexture, texCoordsOut).rgb;
         vec4 material = texture(materialTexture, texCoordsOut);
         vec3 normal = normalize(texture(normalPlusTexture, texCoordsOut).xyz);
-    uint flags = texture(flagsTexture, texCoordsOut).r;
+        uint flags = texture(flagsTexture, texCoordsOut).r;
         vec4 subdermalPlus = vec4(0.0);
         vec4 scatterPlus = vec4(0.0);
         if (sssEnabled == 1)
         {
             subdermalPlus = texture(subdermalPlusTexture, texCoordsOut);
             scatterPlus = texture(scatterPlusTexture, texCoordsOut);
-    }
-
-    // short circuit the lighting if unlit flag is present
-    if ((flags & FLAG_UNLIT) != 0u)
-    {
-        lightAccum = vec4(albedo, 1);
-
-        // Zero out other buffers (optional depending on your renderer)
-        fogAccum = vec4(0.0);
-        return;
-    }
-
-    // short circuit the lighting if toon flag is present
-    if ((flags & FLAG_TOON) != 0u)
-    {
-        // Step 1: Build a combined light direction
-        vec3 combinedLightDir = vec3(0.0);
-        float totalWeight = 0.0;
-    
-        for (int i = 0; i < lightsCount; ++i)
-        {
-            // Direction: -lightDir for directional, vector to light for others
-            vec3 lightDir = (lightTypes[i] == 2 || lightTypes[i] == 3)
-                              ? -lightDirections[i]
-                              : normalize(lightOrigins[i] - position.xyz);
-    
-            float weight = 1.0;
-            if (lightTypes[i] != 2 && lightTypes[i] != 3) {
-                float dist = length(lightOrigins[i] - position.xyz);
-                weight = 1.0 / (dist * dist + 1.0); // falloff weight
-            }
-    
-            combinedLightDir += weight * lightDir;
-            totalWeight += weight;
         }
-    
-        if (totalWeight > 0.0)
-            combinedLightDir = normalize(combinedLightDir / totalWeight);
-        else
-            combinedLightDir = normalize(vec3(0.5, 1.0, 0.2)); // fallback
-    
-        // Step 2: Compute brightness bands
-        float nDotL = max(dot(normalize(normal), combinedLightDir), 0.0);
-    
-        float toonBrightness;
-        if (nDotL < TOON_DARKER)      toonBrightness = TOON_DARKER;
-        else if (nDotL < TOON_DARK)   toonBrightness = TOON_DARK;
-        else                          toonBrightness = TOON_LIGHT;
-    
-        // Step 3: Apply to albedo
-        vec3 toonColor = albedo * toonBrightness;
-    
-        // Step 4: Output and early return
-        lightAccum = vec4(toonColor, 1.0);
-        fogAccum   = vec4(0.0);
-        return;
+
+        // short circuit the lighting if unlit flag is present
+        if ((flags & FLAG_UNLIT) != 0u)
+        {
+            lightAccum = albedo;
+            return;
+        }
+
+            // short circuit the lighting if toon flag is present
+        if ((flags & FLAG_TOON) != 0u)
+        {
+            // Step 1: Compute overall scene lighting intensity using N dot L
+            float totalLightIntensity = 0.0;
+
+            for (int i = 0; i < lightsCount; ++i)
+            {
+                float lightContribution = lightBrightnesses[i];
+
+                // For point/spot lights, apply distance attenuation and N dot L
+                if (lightTypes[i] == 0 || lightTypes[i] == 1)
+                {
+                    vec3 d = lightOrigins[i] - position.xyz;
+                    float distanceSquared = dot(d, d);
+                    float distance = sqrt(distanceSquared);
+                    float cutoffScalar = 1.0 - smoothstep(lightCutoffs[i] * (1.0 - lightCutoffMargin), lightCutoffs[i], distance);
+                    float attenuation = 1.0 / (ATTENUATION_CONSTANT + lightAttenuationLinears[i] * distance + lightAttenuationQuadratics[i] * distanceSquared);
+                    lightContribution *= attenuation * cutoffScalar;
+
+                    // Apply N dot L - surfaces facing away from light get no contribution
+                    vec3 lightDir = normalize(d);
+                    float nDotL = max(dot(normal, lightDir), 0.0);
+                    lightContribution *= nDotL;
+                }
+                else
+                {
+                    // For directional lights, apply N dot L
+                    vec3 lightDir = -lightDirections[i]; // light direction points toward surface
+                    float nDotL = max(dot(normal, lightDir), 0.0);
+                    lightContribution *= nDotL;
+                }
+
+                totalLightIntensity += lightContribution;
+            }
+
+            // Normalize light intensity to a reasonable range
+            float lightScalar = clamp(totalLightIntensity, 0.0, 1.0);
+
+            // Step 2: Compute view-based lighting bands (virtual light source at camera)
+            vec3 toonLightPos = eyeCenter;
+            vec3 viewDir = normalize(toonLightPos - position.xyz);
+            float nDotV = max(dot(normalize(normal), viewDir), 0.0);
+
+            // Toon brightness with smooth gradient in a narrower middle band
+            float toonBrightness;
+            if (nDotV < 0.45)
+            {
+                // Hard cutoff to darkest band
+                toonBrightness = TOON_DARKER;
+            }
+            else if (nDotV < 0.55)
+            {
+                // Smooth gradient from TOON_DARKER to TOON_LIGHT
+                float t = (nDotV - 0.4) / 0.2; // normalize to 0-1 range
+                toonBrightness = mix(TOON_DARKER, TOON_LIGHT, t);
+            }
+            else
+            {
+                // Hard cutoff to lightest band
+                toonBrightness = TOON_LIGHT;
+            }
+
+            // Step 3: Combine overall lighting with view-based banding
+            vec3 toonColor = albedo * toonBrightness * lightScalar;
+
+            // Step 4: Output and early return
+            lightAccum = toonColor;
+
+            return;
         }
 
         // compute materials

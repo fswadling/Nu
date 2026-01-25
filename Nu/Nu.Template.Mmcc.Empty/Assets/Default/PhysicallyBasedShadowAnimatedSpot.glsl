@@ -1,7 +1,7 @@
 #shader vertex
 #version 460 core
 
-const int BONES_MAX = 170;
+const int BONES_MAX = 182;
 const int BONES_INFLUENCE_MAX = 4;
 
 uniform mat4 view;
