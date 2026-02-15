@@ -35,6 +35,8 @@ module ZoneModule =
     [<RequireQualifiedAccess>]
     module Zone =
         let main = "Main"
+        let scenarios = "Scenarios"
+        let player = "Player"
 
         let all = 
             [ NoZone ]
@@ -48,3 +50,15 @@ module ZoneModule =
 
         let toSong = function
             | NoZone -> None
+
+type ScreenTag =
+    | Splash
+    | Title
+    | Credits
+    | Zone of Zone:Zone
+
+[<RequireQualifiedAccess>]
+module ScreenTag =
+    let isZone zone = function
+        | Zone currentZone -> currentZone = zone
+        | _ -> false

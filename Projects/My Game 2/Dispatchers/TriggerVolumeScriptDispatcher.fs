@@ -1,4 +1,4 @@
-﻿namespace MyGame2
+namespace MyGame2
 
 open Nu
 open Prime
@@ -19,15 +19,15 @@ type TriggerVolumeScriptDispatcher () =
         let triggerCues = entity.GetTriggerCues world
         if FDeque.isEmpty triggerCues then Cascade else
 
-        // enqueue cues onto the group that owns this entity, avoiding duplicates by name
-        let group = entity.Group
-        let cues = group.GetCues world
+        // enqueue cues onto the screen that owns this entity, avoiding duplicates by name
+        let screen = entity.Screen
+        let cues = screen.GetCues world
         let alreadyActiveNames = cues |> FDeque.map _.Name |> Set.ofSeq
         let canRunCue (cue: Cue) = not (Set.contains cue.Name alreadyActiveNames)
         let cuesToEnqueue = FDeque.filter canRunCue triggerCues
 
         if FDeque.isEmpty cuesToEnqueue then Cascade else
-        do group.SetCues (FDeque.append cues cuesToEnqueue) world
+        do screen.SetCues (FDeque.append cues cuesToEnqueue) world
         Cascade
 
     static member Properties =

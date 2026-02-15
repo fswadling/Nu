@@ -22,10 +22,7 @@ type MyGame2Dispatcher () =
         if FQueue.contains Deselecting results && game.GetScreenTag world = Splash then game.SetScreenTag Title world
         World.endScreen world
 
-        // declare title screen
-        let menuSong : SongDescriptor option = None
-
-        let behavior = Dissolve (Constants.Dissolve.Default, menuSong)
+        let behavior = Dissolve (Constants.Dissolve.Default, None)
         World.beginScreenWithGroupFromFile
             Simulants.Title.Name
             (game.GetScreenTag world = Title)
@@ -34,13 +31,12 @@ type MyGame2Dispatcher () =
             []
             world |> ignore
 
-        World.doGroup<ScenarioDispatcher> "Root" [] world
-
         World.beginGroup "Gui" [] world
 
         if World.doButton "Play" [] world then
-            let root = Simulants.Title / "Root"
-            root.SetCues (FDeque.singleton Progression.initialCue) world
+            let noZoneScreen = Game / (Zone.toName NoZone)
+            noZoneScreen.SetCues (FDeque.singleton Progression.initialCue) world
+            game.SetScreenTag (Zone NoZone) world
 
         if World.doButton "Credits" [] world then game.SetScreenTag Credits world
         if World.doButton "Exit" [] world && world.Unaccompanied then World.exit world

@@ -22,6 +22,7 @@ module CueModule =
     type SignalTag = string
     type CueName = string
     type AnimationName = string
+    type GroupName = string
 
     type LoopCondition =
         | Always
@@ -81,7 +82,6 @@ module CueModule =
         | StopAllAnimations of Entity:EntityName
         | AddScenario of Zone:Zone * Scenario:Scenario
         | RemoveScenario of Zone:Zone * Scenario:Scenario
-        | SetPlayerScenario of Scenario:Scenario
         | Advent of Advent:Advent
         | SwitchToZone of Zone:Zone
         | Broadcast of SignalTag:SignalTag
@@ -188,3 +188,64 @@ module CueModule =
             match signalCondition with
             | None -> runCue { cue with SignalCondition = None }
             | Some signalCondition -> (Some { cue with SignalCondition = Some signalCondition }, FDeque.empty)
+
+type Exposition =
+    { Text: string
+      Position: Vector2
+      Variant: ExpositVariant }
+
+type AppearProgress = single
+
+type ScriptProgression =
+    | ManualProgression
+    | Automatic
+    | FastForward
+
+[<AutoOpen>]
+module ZoneExtensions =
+    type Game with
+        member this.GetScreenTag world : ScreenTag = this.Get (nameof Game.ScreenTag) world
+        member this.SetScreenTag (value : ScreenTag) world = this.Set (nameof Game.ScreenTag) value world
+        member this.ScreenTag = lens (nameof Game.ScreenTag) this this.GetScreenTag this.SetScreenTag
+
+    type Screen with
+        member this.GetZone world : Zone = this.Get (nameof Screen.Zone) world
+        member this.SetZone (value: Zone) world = this.Set (nameof Screen.Zone) value world
+        member this.Zone = lens (nameof Screen.Zone) this this.GetZone this.SetZone
+
+        member this.GetScenarios world : Scenario Set = this.Get (nameof Screen.Scenarios) world
+        member this.SetScenarios (value: Scenario Set) world = this.Set (nameof Screen.Scenarios) value world
+        member this.Scenarios = lens (nameof Screen.Scenarios) this this.GetScenarios this.SetScenarios
+
+        member this.GetInitializedScenarios world : Scenario Set = this.Get (nameof Screen.InitializedScenarios) world
+        member this.SetInitializedScenarios (value: Scenario Set) world = this.Set (nameof Screen.InitializedScenarios) value world
+        member this.InitializedScenarios = lens (nameof Screen.InitializedScenarios) this this.GetInitializedScenarios this.SetInitializedScenarios
+
+        member this.GetCues world : Cue FDeque = this.Get (nameof Screen.Cues) world
+        member this.SetCues (value: Cue FDeque) world = this.Set (nameof Screen.Cues) value world
+        member this.Cues = lens (nameof Screen.Cues) this this.GetCues this.SetCues
+
+        member this.GetPendingSignals world : SignalTag list = this.Get (nameof Screen.PendingSignals) world
+        member this.SetPendingSignals (value : SignalTag list) world = this.Set (nameof Screen.PendingSignals) value world
+        member this.PendingSignals = lens (nameof Screen.PendingSignals) this this.GetPendingSignals this.SetPendingSignals
+
+        member this.GetExpositions world : HMap<Exposition, AppearProgress> = this.Get (nameof Screen.Expositions) world
+        member this.SetExpositions (value: HMap<Exposition, AppearProgress>) world = this.Set (nameof Screen.Expositions) value world
+        member this.Expositions = lens (nameof Screen.Expositions) this this.GetExpositions this.SetExpositions
+
+        member this.GetAreProgressionOptionsAvailable world : bool = this.Get (nameof Screen.AreProgressionOptionsAvailable) world
+        member this.SetAreProgressionOptionsAvailable (value : bool) world = this.Set (nameof Screen.AreProgressionOptionsAvailable) value world
+        member this.AreProgressionOptionsAvailable = lens (nameof Screen.AreProgressionOptionsAvailable) this this.GetAreProgressionOptionsAvailable this.SetAreProgressionOptionsAvailable
+
+        member this.GetCueProgression world : ScriptProgression = this.Get (nameof Screen.CueProgression) world
+        member this.SetCueProgression (value : ScriptProgression) world = this.Set (nameof Screen.CueProgression) value world
+        member this.CueProgression = lens (nameof Screen.CueProgression) this this.GetCueProgression this.SetCueProgression
+
+        member this.GetFade world : single = this.Get (nameof Screen.Fade) world
+        member this.SetFade (value : single) world = this.Set (nameof Screen.Fade) value world
+        member this.Fade = lens (nameof Screen.Fade) this this.GetFade this.SetFade
+
+    type Group with
+        member this.GetInitialCues world : Cue FDeque = this.Get (nameof Group.InitialCues) world
+        member this.SetInitialCues (value : Cue FDeque) world = this.Set (nameof Group.InitialCues) value world
+        member this.InitialCues = lens (nameof Group.InitialCues) this this.GetInitialCues this.SetInitialCues

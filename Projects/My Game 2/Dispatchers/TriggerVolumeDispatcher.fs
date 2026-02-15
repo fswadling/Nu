@@ -13,4 +13,3 @@ type TriggerVolumeDispatcher () =
     static member Properties =
         [ define Entity.BodyShape (SphereShape { Radius = TriggerVolumeDispatcher.Radius; TransformOpt = None; PropertiesOpt = None })
           define Entity.Sensor true ]
-
