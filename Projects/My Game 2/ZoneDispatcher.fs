@@ -12,6 +12,30 @@ type ZoneDispatcher () =
     let animationRate = 30f
     let emoteDuration = 4f
 
+    /// Read a group descriptor from a .nugroup file.
+    let readGroupDescriptor (filePath: string) : GroupDescriptor =
+        let groupDescriptorStr = File.ReadAllText filePath
+        scvalue<GroupDescriptor> groupDescriptorStr
+
+    /// Extract InitialCues from a group descriptor's properties.
+    let getInitialCues (groupDescriptor: GroupDescriptor) : Cue FDeque =
+        match Map.tryFind "InitialCues" groupDescriptor.GroupProperties with
+        | Some symbol -> symbolToValue<Cue FDeque> symbol
+        | None -> FDeque.empty
+
+    /// Load entities and initial cues from a scenario file into the given group.
+    /// Returns the names of the created entities.
+    let initializeScenario (path: string) (scenariosGroup: Group) (world: World) =
+        let groupDescriptor = readGroupDescriptor path
+        let entities =
+            World.readEntities false true groupDescriptor.EntityDescriptors scenariosGroup world
+
+        let cues = getInitialCues groupDescriptor
+
+        if not (FDeque.isEmpty cues) then
+            let groupCues = scenariosGroup.GetInitialCues world
+            do scenariosGroup.SetInitialCues (FDeque.append groupCues cues) world
+
     let hasAdventHappened (world: World) advent =
         let advents = Game.GetAdvents world
         Seq.contains advent advents
@@ -99,7 +123,7 @@ type ZoneDispatcher () =
             AwaitSignal signal
 
         | Fork cue ->
-            printfn "Forking cue '%s' from cue '%s'." cue.Name cueName
+            printfn "Forking cue '%s' from cue '%s'." cue.Name cue.Name
             ForkCue cue
 
         | Forq ops ->
@@ -239,17 +263,9 @@ type ZoneDispatcher () =
             let scenarioName = Scenario.toName scenario
             printfn "Adding scenario '%s' to zone '%s' in cue '%s'." scenarioName zoneName cueName
             let targetScreen = Game / zoneName
-            let scenarios = targetScreen.GetScenarios world
-            do targetScreen.SetScenarios (Set.add scenario scenarios) world
-            Continue
-
-        | RemoveScenario (zone, scenario) ->
-            let zoneName = Zone.toName zone
-            let scenarioName = Scenario.toName scenario
-            printfn "Removing scenario '%s' from zone '%s' in cue '%s'." scenarioName zoneName cueName
-            let targetScreen = Game / zoneName
-            let scenarios = targetScreen.GetScenarios world
-            do targetScreen.SetScenarios (Set.remove scenario scenarios) world
+            let group = targetScreen / Zone.scenarios
+            let path = Scenario.toPath scenario
+            do initializeScenario path group world
             Continue
 
         | SwitchToZone (zone) ->
@@ -888,40 +904,9 @@ type ZoneDispatcher () =
             | None -> ()
 
     let scenariosGroup (screen: Screen) (world: World) =
-        /// Read a group descriptor from a .nugroup file.
-        let readGroupDescriptor (filePath: string) : GroupDescriptor =
-            let groupDescriptorStr = File.ReadAllText filePath
-            scvalue<GroupDescriptor> groupDescriptorStr
-
-        /// Extract InitialCues from a group descriptor's properties.
-        let getInitialCues (groupDescriptor: GroupDescriptor) : Cue FDeque =
-            match Map.tryFind "InitialCues" groupDescriptor.GroupProperties with
-            | Some symbol -> symbolToValue<Cue FDeque> symbol
-            | None -> FDeque.empty
-
-        /// Load entities and initial cues from a scenario file into the given group.
-        let initializeScenario (path: string) (scenariosGroup: Group) (world: World) =
-            let groupDescriptor = readGroupDescriptor path
-            do World.readEntities false true groupDescriptor.EntityDescriptors scenariosGroup world 
-               |> ignore<Entity list>
-
-            let cues = getInitialCues groupDescriptor
-
-            if not (FDeque.isEmpty cues) then
-                let groupCues = scenariosGroup.GetInitialCues world
-                do scenariosGroup.SetInitialCues (FDeque.append groupCues cues) world
-
-        let scenarios = screen.GetScenarios world
         World.beginGroup<ScenarioDispatcher> Zone.scenarios [] world
 
-        let initializedScenarios = screen.GetInitializedScenarios world
         let scenariosGroup = screen / Zone.scenarios
-        for scenario in scenarios do
-            if not (Set.contains scenario initializedScenarios) then
-                let path = Scenario.toPath scenario
-                do initializeScenario path scenariosGroup world
-                do screen.SetInitializedScenarios (Set.add scenario initializedScenarios) world
-
         let groupCues = scenariosGroup.GetInitialCues world
         if not (FDeque.isEmpty groupCues) then
             let screenCues = screen.GetCues world
@@ -933,8 +918,6 @@ type ZoneDispatcher () =
     // here we define default property values
     static member Properties =
         [ define Screen.Zone NoZone
-          define Screen.Scenarios Set.empty
-          define Screen.InitializedScenarios Set.empty
           define Screen.Cues FDeque.empty
           define Screen.PendingSignals []
           define Screen.Expositions (HMap.makeEmpty ())

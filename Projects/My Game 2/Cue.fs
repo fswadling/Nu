@@ -81,7 +81,6 @@ module CueModule =
         | RemoveCharacter of Character:Character
         | StopAllAnimations of Entity:EntityName
         | AddScenario of Zone:Zone * Scenario:Scenario
-        | RemoveScenario of Zone:Zone * Scenario:Scenario
         | Advent of Advent:Advent
         | SwitchToZone of Zone:Zone
         | Broadcast of SignalTag:SignalTag
@@ -212,14 +211,6 @@ module ZoneExtensions =
         member this.GetZone world : Zone = this.Get (nameof Screen.Zone) world
         member this.SetZone (value: Zone) world = this.Set (nameof Screen.Zone) value world
         member this.Zone = lens (nameof Screen.Zone) this this.GetZone this.SetZone
-
-        member this.GetScenarios world : Scenario Set = this.Get (nameof Screen.Scenarios) world
-        member this.SetScenarios (value: Scenario Set) world = this.Set (nameof Screen.Scenarios) value world
-        member this.Scenarios = lens (nameof Screen.Scenarios) this this.GetScenarios this.SetScenarios
-
-        member this.GetInitializedScenarios world : Scenario Set = this.Get (nameof Screen.InitializedScenarios) world
-        member this.SetInitializedScenarios (value: Scenario Set) world = this.Set (nameof Screen.InitializedScenarios) value world
-        member this.InitializedScenarios = lens (nameof Screen.InitializedScenarios) this this.GetInitializedScenarios this.SetInitializedScenarios
 
         member this.GetCues world : Cue FDeque = this.Get (nameof Screen.Cues) world
         member this.SetCues (value: Cue FDeque) world = this.Set (nameof Screen.Cues) value world
