@@ -71,6 +71,7 @@ module CueModule =
         | StopCameraFollow of Entity:EntityName
         | Disable of Entity:EntityName
         | Enable of Entity:EntityName
+        | Delete of Entity:EntityName
         | EnableFastForward
         | DisableFastForward
         | DollyCameraFollow of Entity:EntityName * Path:EntityName
@@ -83,14 +84,17 @@ module CueModule =
         | AddScenario of Zone:Zone * Scenario:Scenario
         | Advent of Advent:Advent
         | SwitchToZone of Zone:Zone
+        | SwitchToZoneAndDeletePlayer of Zone:Zone
         | Broadcast of SignalTag:SignalTag
 
         // === Control flow ===
         | AwaitSignal of Signal: SignalCondition
         | Fork of Cue
         | Forq of Op FDeque
+        | ForqInZone of Zone:Zone * Op FDeque
         | IfElse of Advent:Advent * ThenCue:Op FDeque * ElseCue:Op FDeque
         | Loop of Condition:LoopCondition * BodyCue:Op FDeque
+        | InZone of Zone:Zone * Op:Op
 
         // === Time-based ops (initial) ===
         | Wait of Duration:single

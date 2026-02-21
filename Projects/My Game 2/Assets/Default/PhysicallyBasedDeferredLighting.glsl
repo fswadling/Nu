@@ -1,4 +1,4 @@
-#shader vertex
+﻿#shader vertex
 #version 460 core
 
 layout(location = 0) in vec3 position;
@@ -15,9 +15,13 @@ void main()
 #shader fragment
 #version 460 core
 
-const float TOON_DARKER = 0.2;
-const float TOON_DARK = 0.5;
-const float TOON_LIGHT = 1.0;
+const float TOON_SHADE_SHIFT = -0.1;                     // shifts the lit/shade boundary toward shade
+const float TOON_SHADE_TOONY = 0.65;                    // shade ramp center; surfaces need N dot L > ~0.5 to be lit
+const float TOON_SHADE_FEATHER = 0.05;                   // transition width; smaller = harder edge
+const vec3 TOON_SHADE_COLOR = vec3(0.3, 0.3, 0.45);     // shade tint applied to albedo (visibly darker, cool-shifted)
+const float TOON_RIM_POWER = 4.0;                        // rim lighting falloff exponent
+const float TOON_RIM_INTENSITY = 0.2;                    // rim lighting strength (reduced to not wash out shade)
+const vec3 TOON_RIM_COLOR = vec3(1.0, 1.0, 1.0);        // rim highlight color
 
 const float PI = 3.141592654;
 const float PI_OVER_2 = PI / 2.0;
@@ -508,74 +512,92 @@ void main()
             return;
         }
 
-            // short circuit the lighting if toon flag is present
+        // short circuit the lighting if toon flag is present (MToon-style two-tone shading)
         if ((flags & FLAG_TOON) != 0u)
         {
-            // Step 1: Compute overall scene lighting intensity using N dot L
-            float totalLightIntensity = 0.0;
+            vec3 v = normalize(eyeCenter - position.xyz);
+
+            // single pass: accumulate total light and track dominant light for shade ramp
+            vec3 totalLight = vec3(0.0);
+            vec3 dominantL = vec3(0.0, 1.0, 0.0);
+            float dominantWeight = 0.0;
+            float dominantShadow = 1.0;
 
             for (int i = 0; i < lightsCount; ++i)
             {
-                float lightContribution = lightBrightnesses[i];
-
-                // For point/spot lights, apply distance attenuation and N dot L
+                vec3 l;
+                float intensity;
                 if (lightTypes[i] == 0 || lightTypes[i] == 1)
                 {
+                    // point or spot light
                     vec3 d = lightOrigins[i] - position.xyz;
                     float distanceSquared = dot(d, d);
                     float distance = sqrt(distanceSquared);
                     float cutoffScalar = 1.0 - smoothstep(lightCutoffs[i] * (1.0 - lightCutoffMargin), lightCutoffs[i], distance);
                     float attenuation = 1.0 / (ATTENUATION_CONSTANT + lightAttenuationLinears[i] * distance + lightAttenuationQuadratics[i] * distanceSquared);
-                    lightContribution *= attenuation * cutoffScalar;
-
-                    // Apply N dot L - surfaces facing away from light get no contribution
-                    vec3 lightDir = normalize(d);
-                    float nDotL = max(dot(normal, lightDir), 0.0);
-                    lightContribution *= nDotL;
+                    l = normalize(d);
+                    float angle = acos(dot(l, -lightDirections[i]));
+                    float halfConeInner = lightConeInners[i] * 0.5;
+                    float halfConeOuter = lightConeOuters[i] * 0.5;
+                    float halfConeDelta = halfConeOuter - halfConeInner;
+                    float halfConeBetween = angle - halfConeInner;
+                    float halfConeScalar = clamp(1.0 - halfConeBetween / halfConeDelta, 0.0, 1.0);
+                    intensity = attenuation * halfConeScalar * cutoffScalar;
                 }
                 else
                 {
-                    // For directional lights, apply N dot L
-                    vec3 lightDir = -lightDirections[i]; // light direction points toward surface
-                    float nDotL = max(dot(normal, lightDir), 0.0);
-                    lightContribution *= nDotL;
+                    // directional or cascaded light
+                    l = -lightDirections[i];
+                    intensity = 1.0;
                 }
 
-                totalLightIntensity += lightContribution;
+                if (intensity > 0.0)
+                {
+                    // compute shadow scalar
+                    int shadowIndex = lightShadowIndices[i];
+                    float shadowScalar = 1.0;
+                    if (shadowIndex >= 0)
+                    {
+                        int lightType = lightTypes[i];
+                        switch (lightType)
+                        {
+                            case 0: { shadowScalar = computeShadowScalarPoint(position, lightOrigins[i], shadowIndex); break; }
+                            case 1: { shadowScalar = computeShadowScalarSpot(position, lightConeOuters[i], shadowIndex); break; }
+                            case 2: { shadowScalar = computeShadowScalarDirectional(position, shadowIndex); break; }
+                            default: { shadowScalar = computeShadowScalarCascaded(position, lightCutoffs[i], shadowIndex); break; }
+                        }
+                    }
+
+                    // accumulate light with lambert attenuation and shadows
+                    float nDotL = max(dot(normal, l), 0.0);
+                    totalLight += lightColors[i] * lightBrightnesses[i] * intensity * nDotL * shadowScalar;
+
+                    // track dominant light (highest effective brightness at this fragment)
+                    float weight = lightBrightnesses[i] * intensity;
+                    if (weight > dominantWeight)
+                    {
+                        dominantWeight = weight;
+                        dominantL = l;
+                        dominantShadow = shadowScalar;
+                    }
+                }
             }
 
-            // Normalize light intensity to a reasonable range
-            float lightScalar = clamp(totalLightIntensity, 0.0, 1.0);
+            // compute shade ramp from dominant light direction only
+            float dominantNdotL = dot(normal, dominantL);
+            float shadingGrade = dominantNdotL * 0.5 + 0.5;
+            shadingGrade = shadingGrade * dominantShadow + TOON_SHADE_SHIFT;
+            float litFactor = smoothstep(TOON_SHADE_TOONY - TOON_SHADE_FEATHER, TOON_SHADE_TOONY + TOON_SHADE_FEATHER, shadingGrade);
 
-            // Step 2: Compute view-based lighting bands (virtual light source at camera)
-            vec3 toonLightPos = eyeCenter;
-            vec3 viewDir = normalize(toonLightPos - position.xyz);
-            float nDotV = max(dot(normalize(normal), viewDir), 0.0);
+            // apply single two-tone shade to albedo, then modulate by accumulated light
+            vec3 shadeColor = albedo * TOON_SHADE_COLOR;
+            vec3 toonAlbedo = mix(shadeColor, albedo, litFactor);
+            lightAccum = toonAlbedo * totalLight;
 
-            // Toon brightness with smooth gradient in a narrower middle band
-            float toonBrightness;
-            if (nDotV < 0.45)
-            {
-                // Hard cutoff to darkest band
-                toonBrightness = TOON_DARKER;
-            }
-            else if (nDotV < 0.55)
-            {
-                // Smooth gradient from TOON_DARKER to TOON_LIGHT
-                float t = (nDotV - 0.4) / 0.2; // normalize to 0-1 range
-                toonBrightness = mix(TOON_DARKER, TOON_LIGHT, t);
-            }
-            else
-            {
-                // Hard cutoff to lightest band
-                toonBrightness = TOON_LIGHT;
-            }
-
-            // Step 3: Combine overall lighting with view-based banding
-            vec3 toonColor = albedo * toonBrightness * lightScalar;
-
-            // Step 4: Output and early return
-            lightAccum = toonColor;
+            // MToon-style rim lighting (fresnel-based, additive)
+            float nDotV = saturate(dot(normal, v));
+            float rim = pow(1.0 - nDotV, TOON_RIM_POWER) * TOON_RIM_INTENSITY;
+            lightAccum += albedo * TOON_RIM_COLOR * rim;
 
             return;
         }

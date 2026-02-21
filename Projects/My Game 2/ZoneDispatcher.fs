@@ -94,7 +94,7 @@ type ZoneDispatcher () =
         | ManualProgression | Automatic -> duration
         | FastForward -> duration * Scenario.FastForwardFactor
 
-    let opHandler (cueName: string) (screen: Screen) (world: World) op =
+    let rec opHandler (cueName: string) (screen: Screen) (world: World) op =
         let scenariosGroup = screen / Zone.scenarios
         match op with
         // === Control flow ===
@@ -131,6 +131,16 @@ type ZoneDispatcher () =
             let cue = { Name = $"{cueName}_Forq_{world.GameTime}"; Ops = ops; SignalCondition = None }
             ForkCue cue
 
+        | ForqInZone (zone, ops) ->
+            printfn "Forking Forq of %d ops in zone '%s' from cue '%s'." (FDeque.length ops) (Zone.toName zone) cueName
+            let zoneName = Zone.toName zone
+            let targetScreen = Game / zoneName
+            let cue = { Name = $"{cueName}_Forq_{world.GameTime}"; Ops = ops; SignalCondition = None }
+            let cues = targetScreen.GetCues world
+            let cues = FDeque.conj cue cues
+            do targetScreen.SetCues cues world
+            Continue
+
         // === Instant ops ===
         | Print msg ->
             printfn "%s" msg
@@ -157,6 +167,18 @@ type ZoneDispatcher () =
             printfn "Enabling entity %s in cue '%s'." entityName cueName
             do (scenariosGroup / entityName).SetEnabled true world
             Continue
+
+        | Delete entityName ->
+            printfn "Deleting entity %s in cue '%s'." entityName cueName
+            do World.destroyEntity (scenariosGroup / entityName) world
+            Continue
+
+        | InZone (zone, innerOp) ->
+            let zoneName = Zone.toName zone
+            let targetScreen = Game / zoneName
+            match opHandler cueName targetScreen world innerOp with
+            | Executing stateOp -> Executing (InZone (zone, stateOp))
+            | result -> result
 
         | EnableFastForward ->
             printfn "Enabling fast-forward in cue '%s'." cueName
@@ -268,10 +290,22 @@ type ZoneDispatcher () =
             do initializeScenario path group world
             Continue
 
-        | SwitchToZone (zone) ->
+        | SwitchToZone zone ->
             printfn $"Switching to zone '{zone}' in cue '{cueName}'."
             do Game.SetScreenTag (Zone zone) world
             Continue
+
+        | SwitchToZoneAndDeletePlayer zone -> 
+            printfn $"Switching to zone '{zone}' and deleting player in cue '{cueName}'."
+
+            let currentZone = screen.GetZone world
+            // We run the delete on the next screen so that the player entity doesnt disappear during the transition.
+            let cues = 
+                [ ForqInZone (zone, FDeque.singleton (InZone (currentZone, Delete Zone.player)))
+                  SwitchToZone zone ]
+                |> FDeque.ofList
+
+            Inject cues
 
         | Advent advent ->
             printfn "Triggering advent '%A' in cue '%s'." advent cueName
@@ -939,7 +973,9 @@ type ZoneDispatcher () =
         // scenarios group — shared group for all scenario entities, loaded once per scenario
         do scenariosGroup screen world
 
-        // gui group — cue rendering (always, even when not advancing)
+        if not (screen.GetSelected world) then () else
+
+        // gui group — cue rendering (always, even when not advancing - but only if the screen is selected)
         do World.beginGroup "Gui" [] world
         do exposition screen world
         do fastForward screen world
@@ -948,7 +984,6 @@ type ZoneDispatcher () =
         World.endGroup world
 
         // cue processing (only when selected and advancing)
-        if not (screen.GetSelected world) then () else
         if not world.Advancing then () else
         do processPendingSignals screen world
         do advanceActiveCues screen world

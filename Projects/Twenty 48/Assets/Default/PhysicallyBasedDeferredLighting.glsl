@@ -1,4 +1,4 @@
-#shader vertex
+ï»¿#shader vertex
 #version 460 core
 
 layout(location = 0) in vec3 position;
@@ -15,6 +15,14 @@ void main()
 #shader fragment
 #version 460 core
 
+const float TOON_SHADE_SHIFT = -0.1;                     // shifts the lit/shade boundary toward shade
+const float TOON_SHADE_TOONY = 0.65;                    // shade ramp center; surfaces need N dot L > ~0.5 to be lit
+const float TOON_SHADE_FEATHER = 0.05;                   // transition width; smaller = harder edge
+const vec3 TOON_SHADE_COLOR = vec3(0.3, 0.3, 0.45);     // shade tint applied to albedo (visibly darker, cool-shifted)
+const float TOON_RIM_POWER = 4.0;                        // rim lighting falloff exponent
+const float TOON_RIM_INTENSITY = 0.2;                    // rim lighting strength (reduced to not wash out shade)
+const vec3 TOON_RIM_COLOR = vec3(1.0, 1.0, 1.0);        // rim highlight color
+
 const float PI = 3.141592654;
 const float PI_OVER_2 = PI / 2.0;
 const float ATTENUATION_CONSTANT = 1.0;
@@ -28,6 +36,8 @@ const float SHADOW_CASCADE_SEAM_INSET = 0.005;
 const float SHADOW_CASCADE_DENSITY_BONUS = 0.5;
 const float SHADOW_FOV_MAX = 2.1;
 const float CLEAR_COAT_REFRACTIVE_INDEX = 1.5; // typical for automotive clear coat
+const uint FLAG_UNLIT = 1u << 0;
+const uint FLAG_TOON = 1u << 1;
 
 uniform vec3 eyeCenter;
 uniform mat4 view;
@@ -48,6 +58,7 @@ uniform sampler2D normalPlusTexture;
 uniform sampler2D subdermalPlusTexture;
 uniform sampler2D scatterPlusTexture;
 uniform sampler2D clearCoatPlusTexture;
+uniform usampler2D flagsTexture;
 uniform sampler2DArray shadowTextures;
 uniform samplerCube shadowMaps[SHADOW_MAPS_MAX];
 uniform sampler2DArray shadowCascades[SHADOW_CASCADES_MAX];
@@ -451,12 +462,12 @@ vec3 computeSubsurfaceScatter(vec4 position, vec3 albedo, vec4 subdermalPlus, ve
         // tunable parameters
         const float density = 8.0; // absorption coefficient
         const vec3 waxTint = vec3(1.0, 0.94, 0.85); // warm tint
-        const float g = 0.2; // Henyey–Greenstein anisotropy (0 = isotropic, >0 = forward bias)
+        const float g = 0.2; // Henyeyï¿½Greenstein anisotropy (0 = isotropic, >0 = forward bias)
 
-        // attenuation by travel distance (Beer–Lambert law)
+        // attenuation by travel distance (Beerï¿½Lambert law)
         vec3 attenuation = exp(-travel * density * finenessSquared * scatter.rgb);
 
-        // Henyey–Greenstein phase function for angular dependence
+        // Henyeyï¿½Greenstein phase function for angular dependence
         float cosTheta = clamp(nDotL, -1.0, 1.0);
         float denom = 1.0 + g * g - 2.0 * g * cosTheta;
         float phase = (1.0 - g * g) / (4.0 * PI * pow(denom, 1.5));
@@ -485,12 +496,110 @@ void main()
         vec3 albedo = texture(albedoTexture, texCoordsOut).rgb;
         vec4 material = texture(materialTexture, texCoordsOut);
         vec3 normal = normalize(texture(normalPlusTexture, texCoordsOut).xyz);
+        uint flags = texture(flagsTexture, texCoordsOut).r;
         vec4 subdermalPlus = vec4(0.0);
         vec4 scatterPlus = vec4(0.0);
         if (sssEnabled == 1)
         {
             subdermalPlus = texture(subdermalPlusTexture, texCoordsOut);
             scatterPlus = texture(scatterPlusTexture, texCoordsOut);
+        }
+
+        // short circuit the lighting if unlit flag is present
+        if ((flags & FLAG_UNLIT) != 0u)
+        {
+            lightAccum = albedo;
+            return;
+        }
+
+        // short circuit the lighting if toon flag is present (MToon-style two-tone shading)
+        if ((flags & FLAG_TOON) != 0u)
+        {
+            vec3 v = normalize(eyeCenter - position.xyz);
+
+            // single pass: accumulate total light and track dominant light for shade ramp
+            vec3 totalLight = vec3(0.0);
+            vec3 dominantL = vec3(0.0, 1.0, 0.0);
+            float dominantWeight = 0.0;
+            float dominantShadow = 1.0;
+
+            for (int i = 0; i < lightsCount; ++i)
+            {
+                vec3 l;
+                float intensity;
+                if (lightTypes[i] == 0 || lightTypes[i] == 1)
+                {
+                    // point or spot light
+                    vec3 d = lightOrigins[i] - position.xyz;
+                    float distanceSquared = dot(d, d);
+                    float distance = sqrt(distanceSquared);
+                    float cutoffScalar = 1.0 - smoothstep(lightCutoffs[i] * (1.0 - lightCutoffMargin), lightCutoffs[i], distance);
+                    float attenuation = 1.0 / (ATTENUATION_CONSTANT + lightAttenuationLinears[i] * distance + lightAttenuationQuadratics[i] * distanceSquared);
+                    l = normalize(d);
+                    float angle = acos(dot(l, -lightDirections[i]));
+                    float halfConeInner = lightConeInners[i] * 0.5;
+                    float halfConeOuter = lightConeOuters[i] * 0.5;
+                    float halfConeDelta = halfConeOuter - halfConeInner;
+                    float halfConeBetween = angle - halfConeInner;
+                    float halfConeScalar = clamp(1.0 - halfConeBetween / halfConeDelta, 0.0, 1.0);
+                    intensity = attenuation * halfConeScalar * cutoffScalar;
+                }
+                else
+                {
+                    // directional or cascaded light
+                    l = -lightDirections[i];
+                    intensity = 1.0;
+                }
+
+                if (intensity > 0.0)
+                {
+                    // compute shadow scalar
+                    int shadowIndex = lightShadowIndices[i];
+                    float shadowScalar = 1.0;
+                    if (shadowIndex >= 0)
+                    {
+                        int lightType = lightTypes[i];
+                        switch (lightType)
+                        {
+                            case 0: { shadowScalar = computeShadowScalarPoint(position, lightOrigins[i], shadowIndex); break; }
+                            case 1: { shadowScalar = computeShadowScalarSpot(position, lightConeOuters[i], shadowIndex); break; }
+                            case 2: { shadowScalar = computeShadowScalarDirectional(position, shadowIndex); break; }
+                            default: { shadowScalar = computeShadowScalarCascaded(position, lightCutoffs[i], shadowIndex); break; }
+                        }
+                    }
+
+                    // accumulate light with lambert attenuation and shadows
+                    float nDotL = max(dot(normal, l), 0.0);
+                    totalLight += lightColors[i] * lightBrightnesses[i] * intensity * nDotL * shadowScalar;
+
+                    // track dominant light (highest effective brightness at this fragment)
+                    float weight = lightBrightnesses[i] * intensity;
+                    if (weight > dominantWeight)
+                    {
+                        dominantWeight = weight;
+                        dominantL = l;
+                        dominantShadow = shadowScalar;
+                    }
+                }
+            }
+
+            // compute shade ramp from dominant light direction only
+            float dominantNdotL = dot(normal, dominantL);
+            float shadingGrade = dominantNdotL * 0.5 + 0.5;
+            shadingGrade = shadingGrade * dominantShadow + TOON_SHADE_SHIFT;
+            float litFactor = smoothstep(TOON_SHADE_TOONY - TOON_SHADE_FEATHER, TOON_SHADE_TOONY + TOON_SHADE_FEATHER, shadingGrade);
+
+            // apply single two-tone shade to albedo, then modulate by accumulated light
+            vec3 shadeColor = albedo * TOON_SHADE_COLOR;
+            vec3 toonAlbedo = mix(shadeColor, albedo, litFactor);
+            lightAccum = toonAlbedo * totalLight;
+
+            // MToon-style rim lighting (fresnel-based, additive)
+            float nDotV = saturate(dot(normal, v));
+            float rim = pow(1.0 - nDotV, TOON_RIM_POWER) * TOON_RIM_INTENSITY;
+            lightAccum += albedo * TOON_RIM_COLOR * rim;
+
+            return;
         }
 
         // compute materials
