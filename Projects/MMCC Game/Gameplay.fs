@@ -99,6 +99,8 @@ type GameplayDispatcher () =
             | Some prop ->
 
             // This breaks the unidiretional model... Will lead to undefined behaviour.
+            // In any case editing the gameplay state wont touch this so it doesnt fix the need for 
+            // effectful cues. Still though it seems to work.
             let player = Simulants.GameplayPlayer
             let entityRotation = player.GetRotation world
             let cameraRotation = entityRotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
