@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -43,6 +43,7 @@
 
 	<ItemGroup>
         <None Include="Assets\*" />
+        <Compile Include="dispatchers\WaypointDispatcher.fs" />
         <None Include="Assets\*\*" />
 		<Compile Include="Assets.fs" />
 		<Compile Include="Simulants.fs" />
@@ -86,6 +87,10 @@
 		<ProjectReference Include="..\..\Nu\Nu.Math\Nu.Math.csproj" />
 		<ProjectReference Include="..\..\Nu\Nu.Pipe\Nu.Pipe.fsproj" />
 		<ProjectReference Include="..\..\Nu\Nu.Spine\Nu.Spine.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Dispatchers\" />
 	</ItemGroup>
 
 </Project>
