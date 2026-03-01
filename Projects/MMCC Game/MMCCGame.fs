@@ -1,7 +1,4 @@
 ﻿namespace MMCCGame
-open System
-open System.Numerics
-open Prime
 open Nu
 open MMCCGame
 
