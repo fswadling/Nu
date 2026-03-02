@@ -94,6 +94,9 @@ type GameplayDispatcher () =
     // If I applied this to other props, I would still have to manipulate them via effectful cues.
     // Maybe i could toggle the binding on the physical property? Ahhh it all feels hacky.
     let doPlayer world (playerProp: CharacterProp) =
+        // If the entity doesnt exist we initialise it with the passed in props
+        // If it does exist we update to the current position and rotation after
+        // physics has been applied.
         let playerProp =
             if Simulants.GameplayPlayer.GetExists world
             then
@@ -108,6 +111,7 @@ type GameplayDispatcher () =
             then updatePlayer world playerProp
             else playerProp
 
+        // This uses imsim dynamic assignment to update the entity.
         do CharacterProp.doEntity Simulants.GameplayPlayer.Name playerProp world
 
         if world.Advancing then

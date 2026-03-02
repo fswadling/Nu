@@ -81,6 +81,18 @@ type GameplayDispatcher () =
         rotation,
         animations
 
+    // This sets the player position and rotation using static assignment and lets them evolve unbounded.
+    // This means that the player position and rotation in the screen level state is not kept up to date 
+    // with the entity and will only reflect the initial position and rotation. 
+    // The problem with this is that if I want to do an action that removes the entity from the current scene
+    // with the intention of adding it back in later, the position and rotation changes will be lost.
+    // Zone transitions are an example of this.
+    // This problem will also exist for any props In the scene that obey physics.
+    // To get around this I would need to have a function to reflect the current state of the entities back
+    // to the screen level state, and call that function whenever I want to do any action that clears the entity from the scene.
+    // This is dooable, but a bit of a pain, and its inelegant as you end up with some properties controlled from 
+    // the gameplaystate, and some directly done on the entity.
+    // As manipulating props positions and rotations is a core feature of cues, cues would also need to be effectful.
     let doPlayer (world: World) (playerProp: CharacterProp) =
         do CharacterProp.doEntity Simulants.GameplayPlayer.Name world playerProp
         let position, rotation, animations = updatePlayer Simulants.GameplayPlayer playerProp world
