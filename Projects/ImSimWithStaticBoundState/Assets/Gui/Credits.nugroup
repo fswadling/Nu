@@ -7,21 +7,21 @@
    [[BackdropImageOpt
      [Some [Default Label]]]
     [Justification [Justified JustifyCenter JustifyMiddle]]
-    [Name Title]
-    [Position [0 80 0]]
+    [Name Credits]
+    [Position [0 96 0]]
     [Size [342 64 0]]
-    [Text "ImSimWithReflectedState Game"]]
-   []]
-  [ButtonDispatcher
-   [[Name Play] [Text Play]]
-   []]
-  [ButtonDispatcher
-   [[Name Credits]
-    [Position [0 -48 0]]
     [Text Credits]]
    []]
+  [TextDispatcher
+   [[BackdropImageOpt
+     [Some [Default Label]]]
+    [Justification [Justified JustifyCenter JustifyMiddle]]
+    [Name YourNameHere]
+    [Size [342 32 0]]
+    [Text "Your Name Here!"]]
+   []]
   [ButtonDispatcher
-   [[Name Exit]
+   [[Name Back]
     [Position [0 -96 0]]
-    [Text Exit]]
+    [Text Back]]
    []]]]
