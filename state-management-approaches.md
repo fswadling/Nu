@@ -31,9 +31,12 @@ let prop = { prop with Position = position; Rotation = entityRotation; Animation
 
 **Drawbacks:**
 
-- **Breaks unidirectional data flow.** The `Message` handler reads mutable entity state from the `world` (position/rotation after physics) rather than purely from the model — violating MMCC's core principle.
-- **Cues would still need to be effectful.** Even though position/rotation are stored in the model, anything that manipulates props (like cues/scripted sequences) would need to mutate entity state directly.
-- An `Edit` override provides a manual **"Sync Player from Entity"** button, highlighting that the binding doesn't truly keep model and entity in sync automatically.
+- **Breaks unidirectional data flow for physics read-back.** The `Message` handler reads mutable entity state from the `world` (position/rotation after physics) rather than purely from the model — violating MMCC's core principle in the entity → model direction.
+- An `Edit` override provides a manual **"Sync Player from Entity"** button, highlighting that the entity → model direction isn't automatic.
+
+**Advantages:**
+
+- **Cues can be pure/model-driven.** Because `:=` bindings push model changes to the entity, cues can be implemented as `Message` handlers that simply return an updated model (e.g., setting `Player.Position`). The binding takes care of propagating those changes to the entity — no effectful entity manipulation needed.
 
 ---
 
@@ -110,26 +113,28 @@ let playerProp =
 - **Not true binding.** Changing position/rotation at the screen level has no effect — the entity's live state immediately overwrites it on the next frame.
 - **One-way reflection only.** It's entity → model, never model → entity (except at initial creation). This is a "read-back" pattern, not a genuine two-way sync.
 - **Feels hacky.** It gives a saveable/transferable state at the screen level (useful for zone transitions and persistence), but the screen state is really just a mirror of the entity, not the source of truth.
-- **Needs effectful cues** For props that obey physics, you'd need effectful cues to manipulate them, since the position and rotation have to be manipulated at the entity level directly
-as the gameplay state is only a reflection.
+
 
 ---
 
 ## Comparison Table
 
-| Concern | MMCC (`:=` bindings) | ImSim Static (`.=`) | ImSim Reflected (`@=` + read-back) |
-|---|---|---|---|
-| **Screen state stays current** | ✅ Yes (model updated each frame) | ❌ No (stale after first frame) | ✅ Yes (reflected each frame) |
-| **Survives zone transitions** | ✅ Yes (in model) | ❌ No (lost on entity removal) | ✅ Yes (reflected to screen state) |
-| **Respects unidirectional flow** | ❌ No (reads world in Message) | N/A (ImSim is imperative) | N/A (ImSim is imperative) |
-| **True two-way binding** | ❌ No | ❌ No | ❌ No |
-| **Cues can be pure/model-driven** | ❌ No (still need effectful cues) | ❌ No | ❌ No |
-| **Consistent property control** | ✅ All through model | ❌ Split (model + direct entity) | ⚠️ Model is a mirror, entity is source of truth |
+| Concern | MMCC (`:=` bindings) | ImSim Static (`.=`) | ImSim Reflected (`@=` + read-back) | My Game 2 (fully effectful) |
+|---|---|---|---|---|
+| **Screen state stays current** | ✅ Yes (model updated each frame) | ❌ No (stale after first frame) | ✅ Yes (reflected each frame) | N/A (no model) |
+| **Survives zone transitions** | ✅ Yes (in model) | ❌ No (lost on entity removal) | ✅ Yes (reflected to screen state) | ❌ Must be manually choreographed |
+| **Respects unidirectional flow** | ❌ No (reads world in Message) | N/A (ImSim is imperative) | N/A (ImSim is imperative) | N/A (imperative by design) |
+| **True two-way binding** | ❌ No | ❌ No | ❌ No | N/A (no binding) |
+| **Cues can be pure/model-driven** | ✅ Yes (`:=` pushes model to entity) | ❌ No | ❌ No | ❌ No (all effectful) |
+| **Consistent property control** | ✅ All through model | ❌ Split (model + direct entity) | ⚠️ Model is a mirror, entity is source of truth | ✅ All direct on entity |
+| **Rich scripting / cross-zone ops** | ❌ Would need custom layer | ❌ Would need custom layer | ❌ Would need custom layer | ✅ Built-in via Durable CE |
+| **Serialisable state** | ✅ Model is serialisable | ⚠️ Partial (model is stale) | ✅ Reflected state is serialisable | ❌ No model to serialise |
 
-## What Might Solve This
+## What Would Solve This
 
 A mechanism at the engine level that provides **true bidirectional binding** between entity physical properties and screen/model-level state — so that:
 
 1. Physics changes on the entity automatically propagate to the model.
 2. Model changes (from cues, zone transitions, save/load) automatically propagate to the entity.
 3. Cues and game logic can remain pure/model-driven without needing effectful entity manipulation.
+4. Cross-zone operations and rich scripting (à la My Game 2's `Durable` CE) can coexist with model-driven state.
