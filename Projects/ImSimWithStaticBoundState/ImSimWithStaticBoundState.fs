@@ -3,7 +3,6 @@ open System
 open System.Numerics
 open Prime
 open Nu
-open ImSimWithStaticBoundState
 
 // this determines what state the game is in. To learn about ImSim in Nu, see -
 // https://github.com/bryanedds/Nu/wiki/Immediate-Mode-for-Games-via-ImSim

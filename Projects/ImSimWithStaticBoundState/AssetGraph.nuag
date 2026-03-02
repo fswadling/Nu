@@ -14,6 +14,22 @@
    [Assets Assets/Gui [cur] [] [Cursor]]
    [Assets Assets/Gui [nueffect nuscript csv] [] [Symbol]]
    [Assets Assets/Gui [nuentity nugroup tsx tmx atlas nav nbrd glsl bin] [] []]]]
+ [Characters
+  [[Assets Assets/Characters [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
+   [Assets Assets/Characters [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]
+   [Assets Assets/Characters [cbm fbx gltf glb dae obj mtl raw] [] [Render3d]]
+   [Assets Assets/Characters [wav ogg mp3] [] [Audio]]
+   [Assets Assets/Characters [cur] [] [Cursor]]
+   [Assets Assets/Characters [nueffect nuscript csv] [] [Symbol]]
+   [Assets Assets/Characters [nuentity nugroup tsx tmx atlas nav nbrd glsl bin] [] []]]]
+ [PlayerApartment
+  [[Assets Assets/PlayerApartment [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
+   [Assets Assets/PlayerApartment [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]
+   [Assets Assets/PlayerApartment [cbm fbx gltf glb dae obj mtl raw] [] [Render3d]]
+   [Assets Assets/PlayerApartment [wav ogg mp3] [] [Audio]]
+   [Assets Assets/PlayerApartment [cur] [] [Cursor]]
+   [Assets Assets/PlayerApartment [nueffect nuscript csv] [] [Symbol]]
+   [Assets Assets/PlayerApartment [nuentity nugroup tsx tmx atlas nav nbrd glsl bin] [] []]]]
  [Gameplay
   [[Assets Assets/Gameplay [bmp png psd ttf skel json] [PsdToPng] [Render2d]]
    [Assets Assets/Gameplay [jpg jpeg tga tif tiff dds] [ConvertToDds] [Render3d]]

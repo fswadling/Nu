@@ -43,9 +43,12 @@
 
 	<ItemGroup>
         <None Include="Assets\*" />
+        <Compile Include="dispatchers\WaypointDispatcher.fs" />
         <None Include="Assets\*\*" />
 		<Compile Include="Assets.fs" />
 		<Compile Include="Simulants.fs" />
+		<Compile Include="Zone.fs" />
+		<Compile Include="Character.fs" />
 		<Compile Include="Gameplay.fs" />
 		<Compile Include="ImSimWithStaticBoundState.fs" />
 		<Compile Include="ImSimWithStaticBoundStatePlugin.fs" />
@@ -82,6 +85,10 @@
 		<ProjectReference Include="..\..\Nu\Nu.Math\Nu.Math.csproj" />
 		<ProjectReference Include="..\..\Nu\Nu.Pipe\Nu.Pipe.fsproj" />
 		<ProjectReference Include="..\..\Nu\Nu.Spine\Nu.Spine.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Dispatchers\" />
 	</ItemGroup>
 
 </Project>
