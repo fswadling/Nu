@@ -17,13 +17,3 @@ type [<SymbolicExpansion>] AnimatedProp =
       Rotation : Quaternion
       Animations : Animation array
       Morphs : (int * single) array }
-
-[<RequireQualifiedAccess>]
-module AnimatedProp =
-    let toContent (name: string) (prop: AnimatedProp) =
-        let propPath = PropType.toPath prop.PropType
-        Content.entityFromFile name propPath
-            [Entity.Position := prop.Position
-             Entity.Rotation := prop.Rotation
-             Entity.Animations := prop.Animations
-             Entity.Morphs := prop.Morphs]

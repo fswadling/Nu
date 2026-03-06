@@ -36,11 +36,13 @@ type GameplayMessage =
     | StartPlaying
     | FinishQuitting
     | TimeUpdate
+    | UpdatePlayerTransform of BodyTransformData
     interface Message
 
 // this is our gameplay MMCC command type.
 type GameplayCommand =
     | StartQuitting
+    | UpdatePlayerPhysics of Velocity: Vector3 * AngularVelocity: Vector3
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -73,7 +75,8 @@ type GameplayDispatcher () =
          Screen.UpdateEvent => UpdateCamera
          Screen.SelectEvent => StartPlaying
          Screen.DeselectingEvent => FinishQuitting
-         Screen.TimeUpdateEvent => TimeUpdate]
+         Screen.TimeUpdateEvent => TimeUpdate
+         Simulants.GameplayPlayer.BodyTransformEvent =|> (fun x -> UpdatePlayerTransform x.Data)]
 
     // here we handle the above messages
     override this.Message (gameplay, message, _, world) =
@@ -93,16 +96,22 @@ type GameplayDispatcher () =
             do World.setEye3dRotation cameraRotation world
             just gameplay
 
+        | UpdatePlayerTransform data ->
+            match gameplay.GameplayState.Player with
+            | None -> just gameplay
+            | Some prop ->
+
+            let player = { prop with Position = data.BodyCenter; Rotation = data.BodyRotation }
+            let gameplay = { gameplay with Gameplay.GameplayState.Player = Some player }
+
+            just gameplay
+
         | UpdatePlayer ->
             match gameplay.GameplayState.Player with
             | None -> just gameplay
             | Some prop ->
 
-            // This breaks the unidiretional model... Will lead to undefined behaviour.
-            let player = Simulants.GameplayPlayer
-            let entityRotation = player.GetRotation world
-            let cameraRotation = entityRotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
-            let position = player.GetPosition world
+            let cameraRotation = prop.Rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
 
             // current forward (from camera-adjusted rotation)
             let forward = cameraRotation.Forward
@@ -117,14 +126,8 @@ type GameplayDispatcher () =
                 (if World.isKeyboardKeyDown KeyboardKey.A world then  1.0f else 0.0f)
 
             let turnVelocity = turnInput * playerTurnSpeed
+            let turnVelocity = v3 0.0f turnVelocity 0.0f
             let walkVelocity = walkDirection * playerWalkSpeed
-            let position = position + walkVelocity
-
-            // incremental yaw around up
-            let deltaRot = Quaternion.CreateFromAxisAngle (v3Up, turnVelocity)
-
-            // apply turn delta to the original entity rotation (not the camera-adjusted one)
-            let entityRotation = Quaternion.Normalize (deltaRot * entityRotation)
 
             // animation blending between Idle and Jog (character props only)
             let isMoving = walkDirection.LengthSquared() > 1e-6f || abs turnInput > 0.0f
@@ -134,11 +137,11 @@ type GameplayDispatcher () =
                     Character.locomotionAnimations isMoving blendRate animationRate world.GameTime prop.Animations character
 
             // store computed values in model; := bindings will push them to the entity
-            let prop = { prop with Position = position; Rotation = entityRotation; Animations = animations }
+            let prop = { prop with Animations = animations }
             let gameplayState = { gameplay.GameplayState with Player = Some prop }
             let gameplay = { gameplay with GameplayState = gameplayState }
 
-            just gameplay
+            withSignal (UpdatePlayerPhysics (walkVelocity, turnVelocity)) gameplay
 
         | StartPlaying ->
             let startWaypoint = Simulants.GameplayScene / "Start"
@@ -147,6 +150,8 @@ type GameplayDispatcher () =
             let rotation = startWaypoint.GetRotation world
             let player = { PropType = CharacterProp Player; Position = position; Rotation = rotation; Animations = Array.empty; Morphs = Array.empty }
             let gameplay = Gameplay.initial player
+            //do World.setBodyCenter position (Simulants.GameplayPlayer.GetBodyId world) world
+            //do World.setBodyRotation rotation (Simulants.GameplayPlayer.GetBodyId world) world
             just gameplay
 
         | FinishQuitting ->
@@ -163,6 +168,9 @@ type GameplayDispatcher () =
         match command with
         | StartQuitting ->
             World.publish () screen.QuitEvent screen world
+        | UpdatePlayerPhysics (walkVelocity, turnVelocity) ->
+            do World.setBodyLinearVelocity walkVelocity (Simulants.GameplayPlayer.GetBodyId world) world
+            do World.setBodyAngularVelocity turnVelocity (Simulants.GameplayPlayer.GetBodyId world) world
 
     // here we allow syncing entity state back into the model from the editor
     override this.Edit (gameplay, op, _, world) =
@@ -187,7 +195,14 @@ type GameplayDispatcher () =
               [// the player character
                match gameplay.GameplayState.Player with
                | None -> ()
-               | Some prop -> AnimatedProp.toContent Simulants.GameplayPlayer.Name prop
+               | Some prop ->
+                    let propPath = PropType.toPath prop.PropType
+                    Content.entityFromFile Simulants.GameplayPlayer.Name propPath
+                        [Entity.Position := prop.Position
+                         Entity.Rotation := prop.Rotation
+                         Entity.PhysicsMotion == ManualMotion
+                         Entity.Animations := prop.Animations
+                         Entity.Morphs := prop.Morphs]
 
                // quit
                Content.button Simulants.GameplayQuit.Name
