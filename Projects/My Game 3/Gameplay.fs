@@ -8,16 +8,17 @@ open MyGame3
 // this represents the state of gameplay simulation.
 type GameplayState =
     { Zone: Zone
-      Player : CharacterProp option }
+      Avatar : CharacterProp option }
 
 module GameplayState =
     let empty =
         { Zone = NoZone
-          Player = None }
+          Avatar = None
+               }
 
     let initial =
         { Zone = PlayerApartment
-          Player = None }
+          Avatar = None }
 
 // this is our MMCC model type representing gameplay.
 // this model representation uses update time, that is, time based on number of engine updates.
@@ -40,15 +41,14 @@ type GameplayMessage =
     | Nil
     | StartPlaying
     | TimeUpdate
-    | PlayerPhysicsUpdate of BodyTransformData
+    | AvatarPhysicsUpdate of BodyTransformData
     interface Message
 
 // this is our gameplay MMCC command type.
 type GameplayCommand =
     | StartQuitting
-    | SetEyeCenter of Vector3
-    | WarpPlayer of Vector3
-    | ProcessPlayerInput
+    | WarpAvatar of Position:Vector3 * Rotation:Quaternion
+    | ProcessAvatarInput
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -62,10 +62,10 @@ module GameplayExtensions =
 
 // this is the dispatcher that defines the behavior of the screen where gameplay takes place.
 type GameplayDispatcher () =
-    inherit ScreenDispatcher<Gameplay, GameplayMessage, GameplayCommand> (Gameplay.initial)
+    inherit ScreenDispatcher<Gameplay, GameplayMessage, GameplayCommand> (Gameplay.empty)
 
-    let playerWalkSpeed = 5.0f
-    let playerTurnSpeed = 3.0f
+    let avatarWalkSpeed = 5.0f
+    let avatarTurnSpeed = 3.0f
     let animationRate = 30f
     let blendRate = 0.05f
 
@@ -79,8 +79,8 @@ type GameplayDispatcher () =
     override this.Definitions (_, _) =
         [Screen.SelectEvent => StartPlaying
          Screen.TimeUpdateEvent => TimeUpdate
-         Screen.UpdateEvent => ProcessPlayerInput
-         Simulants.GameplayPlayer.BodyTransformEvent =|> (fun x -> PlayerPhysicsUpdate x.Data)]
+         Screen.UpdateEvent => ProcessAvatarInput
+         Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)]
 
     // here we handle the above messages
     override this.Message (gameplay, message, _, world) =
@@ -97,18 +97,19 @@ type GameplayDispatcher () =
                   Rotation = rotation
                   Animations = Array.empty
                   Morphs = Array.empty }
-            let gameplay = { gameplay with Gameplay.GameplayState.Player = Some player }
-            withSignals [SetEyeCenter position; WarpPlayer position] gameplay
+            
+            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some player }
+            withSignal (WarpAvatar (position, rotation)) gameplay
 
-        | PlayerPhysicsUpdate data ->
-            match gameplay.GameplayState.Player with
+        | AvatarPhysicsUpdate data ->
+            match gameplay.GameplayState.Avatar with
             | None -> just gameplay
-            | Some player ->
-            let player =
-                { player with
+            | Some avatar ->
+            let avatar =
+                { avatar with
                     Position = data.BodyCenter
                     Rotation = data.BodyRotation }
-            let gameplay = { gameplay with Gameplay.GameplayState.Player = Some player }
+            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some avatar }
             just gameplay
 
         | TimeUpdate ->
@@ -120,22 +121,20 @@ type GameplayDispatcher () =
     override this.Command (gameplay, command, screen, world) =
         match command with
         | StartQuitting ->
-            World.publish () screen.QuitEvent screen world
+            do World.publish () screen.QuitEvent screen world
 
-        | SetEyeCenter center ->
-            World.setEye3dCenter center world
+        | WarpAvatar (position, rotation) ->
+            let bodyId = Simulants.GameplayAvatar.GetBodyId world
+            do World.setBodyCenter position bodyId world
+            do World.setBodyRotation rotation bodyId world
 
-        | WarpPlayer position ->
-            let bodyId = Simulants.GameplayPlayer.GetBodyId world
-            World.setBodyCenter position bodyId world
-
-        | ProcessPlayerInput ->
-            match gameplay.GameplayState.Player with
+        | ProcessAvatarInput ->
+            match gameplay.GameplayState.Avatar with
             | None -> ()
-            | Some player ->
+            | Some avatar ->
 
-            let bodyId = Simulants.GameplayPlayer.GetBodyId world
-            let rotation = player.Rotation
+            let bodyId = Simulants.GameplayAvatar.GetBodyId world
+            let rotation = avatar.Rotation
             let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
             let forward = cameraRotation.Forward
 
@@ -148,10 +147,10 @@ type GameplayDispatcher () =
                 (if World.isKeyboardKeyDown KeyboardKey.D world then -1.0f else 0.0f) +
                 (if World.isKeyboardKeyDown KeyboardKey.A world then  1.0f else 0.0f)
 
-            let walkVelocity = walkDirection * playerWalkSpeed
+            let walkVelocity = walkDirection * avatarWalkSpeed
 
             // compute rotation directly (angular velocity doesn't work for KinematicCharacter)
-            let turnDelta = turnInput * playerTurnSpeed * world.GameDelta.SecondsF
+            let turnDelta = turnInput * avatarTurnSpeed * world.GameDelta.SecondsF
             let newRotation =
                 if turnDelta <> 0.0f
                 then Quaternion.Normalize (rotation * Quaternion.CreateFromAxisAngle (v3Up, turnDelta))
@@ -159,19 +158,19 @@ type GameplayDispatcher () =
 
             // set velocities on the physics body, preserving Y velocity (gravity)
             let currentLinearVelocity = World.getBodyLinearVelocity bodyId world
-            World.setBodyLinearVelocity (walkVelocity.WithY 0.0f + currentLinearVelocity * v3Up) bodyId world
-            World.setBodyRotation newRotation bodyId world
+            do World.setBodyLinearVelocity (walkVelocity.WithY 0.0f + currentLinearVelocity * v3Up) bodyId world
+            do World.setBodyRotation newRotation bodyId world
 
             // update animations in the model
             let isMoving = walkDirection.LengthSquared() > 1e-6f || abs turnInput > 0.0f
-            let animations = Character.locomotionAnimations isMoving blendRate animationRate world.GameTime player.Animations player.Character
-            let player = { player with Animations = animations }
-            let gameplayState = { gameplay.GameplayState with Player = Some player }
-            screen.SetGameplay { gameplay with GameplayState = gameplayState } world
+            let animations = Character.locomotionAnimations isMoving blendRate animationRate world.GameTime avatar.Animations avatar.Character
+            let avatar = { avatar with Animations = animations }
+            let gameplayState = { gameplay.GameplayState with Avatar = Some avatar }
+            do screen.SetGameplay { gameplay with GameplayState = gameplayState } world
 
             // camera follow
-            World.setEye3dCenter (player.Position + v3Up * 1.40f - cameraRotation.Forward) world
-            World.setEye3dRotation cameraRotation world
+            do World.setEye3dCenter (avatar.Position + v3Up * 1.40f - cameraRotation.Forward) world
+            do World.setEye3dRotation cameraRotation world
 
 
     // here we describe the content of the game including the scene and the hud
@@ -182,11 +181,11 @@ type GameplayDispatcher () =
          | None -> ()
          | Some zonePath ->
             Content.groupFromFile Simulants.GameplayScene.Name zonePath []
-                [match gameplay.GameplayState.Player with
+                [match gameplay.GameplayState.Avatar with
                  | None -> ()
                  | Some playerProp ->
                     let path = Character.toPath playerProp.Character
-                    Content.entityFromFile Simulants.GameplayPlayer.Name path
+                    Content.entityFromFile Simulants.GameplayAvatar.Name path
                         [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
                          Entity.Position := playerProp.Position
                          Entity.Rotation := playerProp.Rotation
