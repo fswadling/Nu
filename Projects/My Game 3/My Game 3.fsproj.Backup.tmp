@@ -45,6 +45,7 @@
         <None Include="Assets\*" />
         <None Include="Assets\*\**" />
 		<Compile Include="Assets.fs" />
+		<Compile Include="Cue.fs" />
 		<Compile Include="Simulants.fs" />
 		<Compile Include="Events.fs" />
 		<Folder Include="Dispatchers\" />
@@ -52,8 +53,6 @@
 		<Compile Include="Exposition.fs" />
 		<Compile Include="Character.fs" />
 		<Compile Include="Zone.fs" />
-		<Compile Include="Cue.fs" />
-		<Compile Include="Cue.fs" />
 		<Compile Include="Gameplay.fs" />
 		<Compile Include="MyGame3.fs" />
 		<Compile Include="MyGame3Plugin.fs" />

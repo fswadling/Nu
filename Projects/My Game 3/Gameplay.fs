@@ -10,20 +10,23 @@ type [<SymbolicExpansion>] GameplayState =
     { Zone: Zone
       Avatar : CharacterProp option
       Actors :CharacterProp array
-      Exposition: Exposition option }
+      Exposition: Exposition option
+      Cue : Cue }
 
 module GameplayState =
     let empty =
         { Zone = NoZone
           Avatar = None
           Actors = Array.empty
-          Exposition = None }
+          Exposition = None
+          Cue = Fin }
 
     let initial =
         { Zone = PlayerApartment
           Avatar = None
           Actors = Array.empty
-          Exposition = None }
+          Exposition = None
+          Cue = Fin }
 
 // this is our MMCC model type representing gameplay.
 // this model representation uses update time, that is, time based on number of engine updates.
@@ -54,6 +57,8 @@ type GameplayMessage =
     | ShowExposition of Text:string * ExpositVariant
     | AdvanceExposition
     | UpdateExposition
+    | RunCue of Cue
+    | StepCues
     interface Message
 
 // this is our gameplay MMCC command type.
@@ -81,6 +86,85 @@ type GameplayDispatcher () =
     let animationRate = 30f
     let blendRate = 0.05f
 
+    // recursively process a cue until it blocks or finishes, following OmniBlade's pattern.
+    // returns the updated cue and (signals, gameplay).
+    let rec updateCue (cue: Cue) (gameplay: Gameplay) (world: World) : Cue * (Signal list * Gameplay) =
+        match cue with
+        | Fin ->
+            (Fin, just gameplay)
+
+        | Print text ->
+            printfn "[Cue] %s" text
+            (Fin, just gameplay)
+
+        | Cue.AddActor (character, spawnPoint) ->
+            let waypoint = Simulants.GameplayScene / spawnPoint
+            let position = waypoint.GetPosition world
+            let rotation = waypoint.GetRotation world
+            let idle = Character.idle character
+            let idle = Animation.make world.GameTime None idle Playback.Loop 30f 1.0f None
+            let actor =
+                { Character = character
+                  Position = position
+                  Rotation = rotation
+                  Animations = Array.singleton idle
+                  Morphs = Array.empty }
+            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            (Fin, just gameplay)
+
+        | Cue.RemoveActor character ->
+            let actors = Array.filter (fun a -> a.Character <> character) gameplay.GameplayState.Actors
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            (Fin, just gameplay)
+
+        | Cue.Exposit (text, variant) ->
+            let exposition = Exposition.make text variant
+            let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
+            (Fin, just gameplay)
+
+        | Wait duration ->
+            let endTime = world.GameTime + GameTime.ofSeconds (double duration)
+            (WaitState endTime, just gameplay)
+
+        | WaitState endTime ->
+            if world.GameTime >= endTime
+            then (Fin, just gameplay)
+            else (cue, just gameplay)
+
+        | Sequence cues ->
+            let stepSequence (halted, haltedCues, (signals: Signal FDeque, gameplay)) cue =
+                if halted then (halted, FDeque.conj cue haltedCues, (signals, gameplay)) else
+                let (cue, (signals2, gameplay)) = updateCue cue gameplay world
+                let signals = List.fold (fun acc s -> FDeque.conj s acc) signals signals2
+                if Cue.isFin cue
+                then (false, FDeque.empty, (signals, gameplay))
+                else (true, FDeque.conj cue FDeque.empty, (signals, gameplay))
+
+            let (_, haltedCues, (signals, gameplay)) =
+                FDeque.fold stepSequence (false, FDeque.empty, (FDeque.empty, gameplay)) cues
+
+            let signals = Seq.toList signals
+            if FDeque.isEmpty haltedCues
+            then (Fin, (signals, gameplay))
+            else (Sequence haltedCues, (signals, gameplay))
+
+        | Parallel cues ->
+            let stepParallel (remaining, (signals: Signal FDeque, gameplay)) cue =
+                let (cue, (signals2, gameplay)) = updateCue cue gameplay world
+                let signals = List.fold (fun acc s -> FDeque.conj s acc) signals signals2
+                if Cue.isFin cue
+                then (remaining, (signals, gameplay))
+                else (FDeque.conj cue remaining, (signals, gameplay))
+
+            let (remaining, (signals, gameplay)) =
+                FDeque.fold stepParallel (FDeque.empty, (FDeque.empty, gameplay)) cues
+
+            let signals = Seq.toList signals
+            if FDeque.isEmpty remaining
+            then (Fin, (signals, gameplay))
+            else (Parallel remaining, (signals, gameplay))
+
     // here we define the screen's fallback model depending on whether screen is selected
     override this.GetFallbackModel (_, screen, world) =
         if screen.GetSelected world
@@ -93,6 +177,7 @@ type GameplayDispatcher () =
          Screen.TimeUpdateEvent => TimeUpdate
          Screen.UpdateEvent => ProcessAvatarInput
          Screen.UpdateEvent => UpdateExposition
+         Screen.UpdateEvent => StepCues
          Game.KeyboardKeyDownEvent =|> fun data ->
             if data.Data.KeyboardKey = KeyboardKey.E then AdvanceExposition else Nil
          Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)
@@ -199,6 +284,18 @@ type GameplayDispatcher () =
             let exposition = Exposition.update world.GameDelta.SecondsF exposition
             let gameplay = { gameplay with Gameplay.GameplayState.Exposition = exposition }
             just gameplay
+
+        | RunCue cue ->
+            let gameplay = { gameplay with Gameplay.GameplayState.Cue = cue }
+            just gameplay
+
+        | StepCues ->
+            let cue = gameplay.GameplayState.Cue
+            if Cue.isFin cue then just gameplay
+            else
+                let (cue, (signals, gameplay)) = updateCue cue gameplay world
+                let gameplay = { gameplay with Gameplay.GameplayState.Cue = cue }
+                withSignals signals gameplay
 
     // here we handle the above commands
     override this.Command (gameplay, command, screen, world) =
@@ -357,4 +454,15 @@ type GameplayDispatcher () =
              Content.button "TestActor"
                 [Entity.Position == v3 232.0f -64.0f 0.0f
                  Entity.Text == "Add Akane"
-                 Entity.ClickEvent => AddActorAtStart Akane]]]
+                 Entity.ClickEvent => AddActorAtStart Akane]
+
+             // test cue
+             Content.button "TestCue"
+                [Entity.Position == v3 232.0f -24.0f 0.0f
+                 Entity.Text == "Test Cue"
+                 Entity.ClickEvent => RunCue (Sequence (FDeque.ofList
+                    [Print "Cue started!"
+                     Exposit ("A cue is running...", Thought)
+                     Wait 3.0f
+                     Cue.AddActor (Akane, "Start")
+                     Print "Cue finished!"]))]]]
