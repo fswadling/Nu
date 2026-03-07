@@ -47,8 +47,8 @@ type GameplayMessage =
 type GameplayCommand =
     | StartQuitting
     | SetEyeCenter of Vector3
-    | MovePlayerForward
-    | StopPlayerMovement
+    | WarpPlayer of Vector3
+    | ProcessPlayerInput
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -64,6 +64,11 @@ module GameplayExtensions =
 type GameplayDispatcher () =
     inherit ScreenDispatcher<Gameplay, GameplayMessage, GameplayCommand> (Gameplay.initial)
 
+    let playerWalkSpeed = 5.0f
+    let playerTurnSpeed = 3.0f
+    let animationRate = 30f
+    let blendRate = 0.05f
+
     // here we define the screen's fallback model depending on whether screen is selected
     override this.GetFallbackModel (_, screen, world) =
         if screen.GetSelected world
@@ -71,14 +76,10 @@ type GameplayDispatcher () =
         else Gameplay.empty
 
     // here we define the screen's property values and event handling
-    override this.Definitions (model, _) =
+    override this.Definitions (_, _) =
         [Screen.SelectEvent => StartPlaying
          Screen.TimeUpdateEvent => TimeUpdate
-         Game.KeyboardKeyChangeEvent =|> fun data ->
-            match model.GameplayState.Player, data.Data with
-            | Some _, { KeyboardKey = KeyboardKey.W; Down = true } -> MovePlayerForward
-            | Some _, { KeyboardKey = KeyboardKey.W; Down = false } -> StopPlayerMovement
-            | _ -> Nil
+         Screen.UpdateEvent => ProcessPlayerInput
          Simulants.GameplayPlayer.BodyTransformEvent =|> (fun x -> PlayerPhysicsUpdate x.Data)]
 
     // here we handle the above messages
@@ -97,18 +98,17 @@ type GameplayDispatcher () =
                   Animations = Array.empty
                   Morphs = Array.empty }
             let gameplay = { gameplay with Gameplay.GameplayState.Player = Some player }
-            withSignal (SetEyeCenter position) gameplay
+            withSignals [SetEyeCenter position; WarpPlayer position] gameplay
 
         | PlayerPhysicsUpdate data ->
-            let position = data.BodyCenter
-            let rotation = data.BodyRotation
-            let playerProp =
-                { Character = Player
-                  Position = position
-                  Rotation = rotation
-                  Animations = Array.empty
-                  Morphs = Array.empty }
-            let gameplay = { gameplay with Gameplay.GameplayState.Player = Some playerProp }
+            match gameplay.GameplayState.Player with
+            | None -> just gameplay
+            | Some player ->
+            let player =
+                { player with
+                    Position = data.BodyCenter
+                    Rotation = data.BodyRotation }
+            let gameplay = { gameplay with Gameplay.GameplayState.Player = Some player }
             just gameplay
 
         | TimeUpdate ->
@@ -117,27 +117,61 @@ type GameplayDispatcher () =
             just gameplay
 
     // here we handle the above commands
-    override this.Command (_, command, screen, world) =
+    override this.Command (gameplay, command, screen, world) =
         match command with
         | StartQuitting ->
             World.publish () screen.QuitEvent screen world
+
         | SetEyeCenter center ->
             World.setEye3dCenter center world
-        | MovePlayerForward ->
-            let player = Simulants.GameplayPlayer
-            let bodyId = player.GetBodyId world
-            let rotation = player.GetRotation world
-            let forward = rotation.Forward
-            let velocity = forward * 0.1f
-            System.Console.WriteLine ("MovePlayerForward: " + velocity.ToString ())
-            ()
-            //World.setBodyLinearVelocity velocity bodyId world
-        | StopPlayerMovement ->
-            let player = Simulants.GameplayPlayer
-            let bodyId = player.GetBodyId world
-            System.Console.WriteLine ("StopPlayerMovement")
-            ()
-           // World.setBodyLinearVelocity v3Zero bodyId world
+
+        | WarpPlayer position ->
+            let bodyId = Simulants.GameplayPlayer.GetBodyId world
+            World.setBodyCenter position bodyId world
+
+        | ProcessPlayerInput ->
+            match gameplay.GameplayState.Player with
+            | None -> ()
+            | Some player ->
+
+            let bodyId = Simulants.GameplayPlayer.GetBodyId world
+            let rotation = player.Rotation
+            let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
+            let forward = cameraRotation.Forward
+
+            // tank controls: W/S for forward/back, A/D for turning
+            let walkDirection =
+                (if World.isKeyboardKeyDown KeyboardKey.W world then forward else v3Zero) +
+                (if World.isKeyboardKeyDown KeyboardKey.S world then -forward else v3Zero)
+
+            let turnInput =
+                (if World.isKeyboardKeyDown KeyboardKey.D world then -1.0f else 0.0f) +
+                (if World.isKeyboardKeyDown KeyboardKey.A world then  1.0f else 0.0f)
+
+            let walkVelocity = walkDirection * playerWalkSpeed
+
+            // compute rotation directly (angular velocity doesn't work for KinematicCharacter)
+            let turnDelta = turnInput * playerTurnSpeed * world.GameDelta.SecondsF
+            let newRotation =
+                if turnDelta <> 0.0f
+                then Quaternion.Normalize (rotation * Quaternion.CreateFromAxisAngle (v3Up, turnDelta))
+                else rotation
+
+            // set velocities on the physics body, preserving Y velocity (gravity)
+            let currentLinearVelocity = World.getBodyLinearVelocity bodyId world
+            World.setBodyLinearVelocity (walkVelocity.WithY 0.0f + currentLinearVelocity * v3Up) bodyId world
+            World.setBodyRotation newRotation bodyId world
+
+            // update animations in the model
+            let isMoving = walkDirection.LengthSquared() > 1e-6f || abs turnInput > 0.0f
+            let animations = Character.locomotionAnimations isMoving blendRate animationRate world.GameTime player.Animations player.Character
+            let player = { player with Animations = animations }
+            let gameplayState = { gameplay.GameplayState with Player = Some player }
+            screen.SetGameplay { gameplay with GameplayState = gameplayState } world
+
+            // camera follow
+            World.setEye3dCenter (player.Position + v3Up * 1.40f - cameraRotation.Forward) world
+            World.setEye3dRotation cameraRotation world
 
 
     // here we describe the content of the game including the scene and the hud
@@ -153,9 +187,9 @@ type GameplayDispatcher () =
                  | Some playerProp ->
                     let path = Character.toPath playerProp.Character
                     Content.entityFromFile Simulants.GameplayPlayer.Name path
-                        [Entity.PhysicsMotion == PhysicsMotion.SynchronizedMotion
-                         Entity.Position == playerProp.Position
-                         Entity.Rotation == playerProp.Rotation
+                        [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
+                         Entity.Position := playerProp.Position
+                         Entity.Rotation := playerProp.Rotation
                          Entity.Animations := playerProp.Animations
                          Entity.Morphs := playerProp.Morphs]]
 
