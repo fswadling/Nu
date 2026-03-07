@@ -11,7 +11,9 @@ type [<SymbolicExpansion>] GameplayState =
       Avatar : CharacterProp option
       Actors :CharacterProp array
       Exposition: Exposition option
-      Cue : Cue }
+      Cue : Cue
+      AvatarMovementEnabled : bool
+      CameraFollowEnabled : bool }
 
 module GameplayState =
     let empty =
@@ -19,14 +21,18 @@ module GameplayState =
           Avatar = None
           Actors = Array.empty
           Exposition = None
-          Cue = Fin }
+          Cue = Fin
+          AvatarMovementEnabled = false
+          CameraFollowEnabled = false }
 
     let initial =
         { Zone = PlayerApartment
           Avatar = None
           Actors = Array.empty
           Exposition = None
-          Cue = Fin }
+          Cue = Fin
+          AvatarMovementEnabled = true
+          CameraFollowEnabled = true }
 
 // this is our MMCC model type representing gameplay.
 // this model representation uses update time, that is, time based on number of engine updates.
@@ -66,6 +72,7 @@ type GameplayCommand =
     | StartQuitting
     | WarpAvatar of Position:Vector3 * Rotation:Quaternion
     | ProcessAvatarInput
+    | UpdateCameraFollow
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -175,7 +182,10 @@ type GameplayDispatcher () =
     override this.Definitions (gameplay, _) =
         [Screen.SelectEvent => StartPlaying
          Screen.TimeUpdateEvent => TimeUpdate
-         Screen.UpdateEvent => ProcessAvatarInput
+         if gameplay.GameplayState.AvatarMovementEnabled then
+            Screen.UpdateEvent => ProcessAvatarInput
+         if gameplay.GameplayState.CameraFollowEnabled then
+            Screen.UpdateEvent => UpdateCameraFollow
          Screen.UpdateEvent => UpdateExposition
          Screen.UpdateEvent => StepCues
          Game.KeyboardKeyDownEvent =|> fun data ->
@@ -348,9 +358,48 @@ type GameplayDispatcher () =
             let gameplayState = { gameplay.GameplayState with Avatar = Some avatar }
             do screen.SetGameplay { gameplay with GameplayState = gameplayState } world
 
-            // camera follow
+        | UpdateCameraFollow ->
+            match gameplay.GameplayState.Avatar with
+            | None -> ()
+            | Some avatar ->
+
+            let rotation = avatar.Rotation
+            let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
             do World.setEye3dCenter (avatar.Position + v3Up * 1.40f - cameraRotation.Forward) world
             do World.setEye3dRotation cameraRotation world
+
+    
+
+    // here we sync the avatar and actor models from their entities when editing in Gaia
+    override this.Edit (gameplay, op, _, world) =
+        match op with
+        | ViewportOverlay _ when not world.Advancing ->
+            // sync avatar
+            let gameplay =
+                match gameplay.GameplayState.Avatar with
+                | None -> gameplay
+                | Some avatar ->
+                let position = Simulants.GameplayAvatar.GetPosition world
+                let rotation = Simulants.GameplayAvatar.GetRotation world
+                let bodyId = Simulants.GameplayAvatar.GetBodyId world
+                do World.setBodyCenter position bodyId world
+                do World.setBodyRotation rotation bodyId world
+                let avatar = { avatar with Position = position; Rotation = rotation }
+                { gameplay with Gameplay.GameplayState.Avatar = Some avatar }
+
+            // sync actors
+            let syncActorFromEntity (world: World) (actor: CharacterProp) =
+                let name = Character.toName actor.Character
+                let entity = Simulants.GameplayScene / name
+                if not (entity.GetExists world) then actor else
+                let position = entity.GetPosition world
+                let rotation = entity.GetRotation world
+                { actor with Position = position; Rotation = rotation }
+
+            let actors = Array.map (syncActorFromEntity world) gameplay.GameplayState.Actors
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            just gameplay
+        | _ -> just gameplay
 
 
     // here we describe the content of the game including the scene and the hud
