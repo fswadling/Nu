@@ -5,17 +5,25 @@ open Prime
 
 type Character =
     | Player
+    | Akane
 
 [<RequireQualifiedAccess>]
 module Character =
+    let toName = function
+        | Player -> "Player"
+        | Akane -> "Akane"
+
     let toPath = function
         | Player -> "Assets/Gameplay/Characters/Player/Player.nuentity"
+        | Akane -> "Assets/Gameplay/Characters/Akane/Akane.nuentity"
 
     let idle = function
         | Player -> "Idle"
+        | Akane -> "Idle"
 
     let jog = function
         | Player -> "Jog"
+        | Akane -> "Jog"
 
     let locomotionAnimations (isMoving: bool) (blendRate: single) (rate: single) (gameTime: GameTime) (currentAnimations: Animation array) (character: Character) =
         let jogName = jog character

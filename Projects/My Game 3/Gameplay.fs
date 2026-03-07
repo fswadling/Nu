@@ -9,17 +9,20 @@ open MyGame3
 type [<SymbolicExpansion>] GameplayState =
     { Zone: Zone
       Avatar : CharacterProp option
+      Actors :CharacterProp array
       Exposition: Exposition option }
 
 module GameplayState =
     let empty =
         { Zone = NoZone
           Avatar = None
+          Actors = Array.empty
           Exposition = None }
 
     let initial =
         { Zone = PlayerApartment
           Avatar = None
+          Actors = Array.empty
           Exposition = None }
 
 // this is our MMCC model type representing gameplay.
@@ -44,6 +47,9 @@ type GameplayMessage =
     | StartPlaying
     | TimeUpdate
     | AvatarPhysicsUpdate of BodyTransformData
+    | AddActor of Character * Position:Vector3 * Rotation:Quaternion
+    | AddActorAtStart of Character
+    | RemoveActor of Character
     | ShowExposition of Text:string * ExpositVariant
     | AdvanceExposition
     | UpdateExposition
@@ -130,6 +136,40 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
             just gameplay
 
+        | AddActorAtStart character ->
+            let startWaypoint = Simulants.GameplayScene / "Start"
+            let position = startWaypoint.GetPosition world
+            let rotation = startWaypoint.GetRotation world
+            let idle = Character.idle character
+            let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
+            let actor =
+                { Character = character
+                  Position = position
+                  Rotation = rotation
+                  Animations = Array.singleton idle
+                  Morphs = Array.empty }
+            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            just gameplay
+
+        | AddActor (character, position, rotation) ->
+            let idle = Character.idle character
+            let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
+            let actor =
+                { Character = character
+                  Position = position
+                  Rotation = rotation
+                  Animations = Array.singleton idle
+                  Morphs = Array.empty }
+            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            just gameplay
+
+        | RemoveActor character ->
+            let actors = Array.filter (fun a -> a.Character <> character) gameplay.GameplayState.Actors
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
+            just gameplay
+
         | AdvanceExposition ->
             match gameplay.GameplayState.Exposition with
             | None -> just gameplay
@@ -210,17 +250,27 @@ type GameplayDispatcher () =
          | None -> ()
          | Some zonePath ->
          Content.groupFromFile Simulants.GameplayScene.Name zonePath []
-             [//avatar
+             [// avatar
               match gameplay.GameplayState.Avatar with
               | None -> ()
-              | Some playerProp ->
-              let path = Character.toPath playerProp.Character
+              | Some avatarProp ->
+              let path = Character.toPath avatarProp.Character
               Content.entityFromFile Simulants.GameplayAvatar.Name path
                   [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
-                   Entity.Position := playerProp.Position
-                   Entity.Rotation := playerProp.Rotation
-                   Entity.Animations := playerProp.Animations
-                   Entity.Morphs := playerProp.Morphs]]
+                   Entity.Position := avatarProp.Position
+                   Entity.Rotation := avatarProp.Rotation
+                   Entity.Animations := avatarProp.Animations
+                   Entity.Morphs := avatarProp.Morphs]
+
+              // actors
+              for actor in gameplay.GameplayState.Actors do
+                  let name = Character.toName actor.Character
+                  let path = Character.toPath actor.Character
+                  Content.entityFromFile name path
+                      [Entity.Position == actor.Position
+                       Entity.Rotation == actor.Rotation
+                       Entity.Animations := actor.Animations
+                       Entity.Morphs := actor.Morphs]]
 
          Content.group Simulants.GameplayGui.Name []
             [// exposition
@@ -284,4 +334,10 @@ type GameplayDispatcher () =
              Content.button "TestExposition"
                 [Entity.Position == v3 232.0f -104.0f 0.0f
                  Entity.Text == "Test"
-                 Entity.ClickEvent => ShowExposition ("Hello, world!", Thought)]]]
+                 Entity.ClickEvent => ShowExposition ("Hello, world!", Thought)]
+
+             // test actor
+             Content.button "TestActor"
+                [Entity.Position == v3 232.0f -64.0f 0.0f
+                 Entity.Text == "Add Akane"
+                 Entity.ClickEvent => AddActorAtStart Akane]]]
