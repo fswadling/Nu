@@ -6,19 +6,21 @@ open Nu
 open MyGame3
 
 // this represents the state of gameplay simulation.
-type GameplayState =
+type [<SymbolicExpansion>] GameplayState =
     { Zone: Zone
-      Avatar : CharacterProp option }
+      Avatar : CharacterProp option
+      Exposition: Exposition option }
 
 module GameplayState =
     let empty =
         { Zone = NoZone
           Avatar = None
-               }
+          Exposition = None }
 
     let initial =
         { Zone = PlayerApartment
-          Avatar = None }
+          Avatar = None
+          Exposition = None }
 
 // this is our MMCC model type representing gameplay.
 // this model representation uses update time, that is, time based on number of engine updates.
@@ -42,6 +44,9 @@ type GameplayMessage =
     | StartPlaying
     | TimeUpdate
     | AvatarPhysicsUpdate of BodyTransformData
+    | ShowExposition of Text:string * ExpositVariant
+    | AdvanceExposition
+    | UpdateExposition
     interface Message
 
 // this is our gameplay MMCC command type.
@@ -62,7 +67,7 @@ module GameplayExtensions =
 
 // this is the dispatcher that defines the behavior of the screen where gameplay takes place.
 type GameplayDispatcher () =
-    inherit ScreenDispatcher<Gameplay, GameplayMessage, GameplayCommand> (Gameplay.empty)
+    inherit ScreenDispatcher<Gameplay, GameplayMessage, GameplayCommand> (Gameplay.initial)
 
     let avatarWalkSpeed = 5.0f
     let avatarTurnSpeed = 3.0f
@@ -80,6 +85,9 @@ type GameplayDispatcher () =
         [Screen.SelectEvent => StartPlaying
          Screen.TimeUpdateEvent => TimeUpdate
          Screen.UpdateEvent => ProcessAvatarInput
+         Screen.UpdateEvent => UpdateExposition
+         Game.KeyboardKeyDownEvent =|> fun data ->
+            if data.Data.KeyboardKey = KeyboardKey.E then AdvanceExposition else Nil
          Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)]
 
     // here we handle the above messages
@@ -115,6 +123,27 @@ type GameplayDispatcher () =
         | TimeUpdate ->
             let gameDelta = world.GameDelta
             let gameplay = { gameplay with GameplayTime = gameplay.GameplayTime + gameDelta.Updates }
+            just gameplay
+
+        | ShowExposition (text, variant) ->
+            let exposition = Exposition.make text variant
+            let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
+            just gameplay
+
+        | AdvanceExposition ->
+            match gameplay.GameplayState.Exposition with
+            | None -> just gameplay
+            | Some exposition ->
+            let exposition = Exposition.advance exposition
+            let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
+            just gameplay
+
+        | UpdateExposition ->
+            match gameplay.GameplayState.Exposition with
+            | None -> just gameplay
+            | Some exposition ->
+            let exposition = Exposition.update world.GameDelta.SecondsF exposition
+            let gameplay = { gameplay with Gameplay.GameplayState.Exposition = exposition }
             just gameplay
 
     // here we handle the above commands
@@ -180,21 +209,79 @@ type GameplayDispatcher () =
          match zonePath with
          | None -> ()
          | Some zonePath ->
-            Content.groupFromFile Simulants.GameplayScene.Name zonePath []
-                [match gameplay.GameplayState.Avatar with
-                 | None -> ()
-                 | Some playerProp ->
-                    let path = Character.toPath playerProp.Character
-                    Content.entityFromFile Simulants.GameplayAvatar.Name path
-                        [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
-                         Entity.Position := playerProp.Position
-                         Entity.Rotation := playerProp.Rotation
-                         Entity.Animations := playerProp.Animations
-                         Entity.Morphs := playerProp.Morphs]]
+         Content.groupFromFile Simulants.GameplayScene.Name zonePath []
+             [//avatar
+              match gameplay.GameplayState.Avatar with
+              | None -> ()
+              | Some playerProp ->
+              let path = Character.toPath playerProp.Character
+              Content.entityFromFile Simulants.GameplayAvatar.Name path
+                  [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
+                   Entity.Position := playerProp.Position
+                   Entity.Rotation := playerProp.Rotation
+                   Entity.Animations := playerProp.Animations
+                   Entity.Morphs := playerProp.Morphs]]
 
          Content.group Simulants.GameplayGui.Name []
-            // quit
-            [Content.button Simulants.GameplayQuit.Name
+            [// exposition
+             match gameplay.GameplayState.Exposition with
+             | None -> ()
+             | Some exposition ->
+                 let pos = Exposition.position exposition
+                 let baseSize = Exposition.size exposition
+                 let width = baseSize.X * exposition.AppearProgress
+                 let height = baseSize.Y * exposition.AppearProgress
+                 let text =
+                     match exposition.Phase with
+                     | DisplayPhase  -> exposition.Text
+                     | _ -> String.empty
+
+                 match exposition.Variant with
+                 | Thought ->
+                     Content.text "Exposition"
+                         [Entity.Position == pos.V3
+                          Entity.Size := v3 width height 0f
+                          Entity.Color == Color.DarkGray
+                          Entity.TextColor == Color.White
+                          Entity.Text := text]
+
+                 | Dialogue ->
+                     Content.text "Exposition"
+                         [Entity.Position == pos.V3
+                          Entity.Size := v3 width height 0f
+                          Entity.TextColor == Color.Black
+                          Entity.Text := text]
+
+                 | PortraitDialogue portrait ->
+                     Content.panel "Exposition"
+                         [Entity.Position == pos.V3
+                          Entity.Layout == Manual
+                          Entity.Size := v3 width height 0f]
+                         [match exposition.Phase with
+                          | AppearPhase | DisappearPhase -> ()
+                          | DisplayPhase ->
+                             let portraitPath = ExpositionPortrait.toPath portrait
+                             Content.staticSprite "Portrait"
+                                 [Entity.PositionLocal == v3 -137f 3f 1f
+                                  Entity.Size == v3 80f 64f 0f
+                                  Entity.StaticImage == asset "Gameplay" portraitPath
+                                  Entity.Elevation == 1f]
+                          Content.text "Dialogue"
+                             [Entity.BackdropImageOpt == None
+                              Entity.Justification == Unjustified true
+                              Entity.TextColor == Color.Black
+                              Entity.PositionLocal == v3 40f 3f 0f
+                              Entity.Size == v3 256f 64f 0f
+                              Entity.Text := text]]
+
+             // quit
+             Content.button Simulants.GameplayQuit.Name
                 [Entity.Position == v3 232.0f -144.0f 0.0f
                  Entity.Text == "Quit"
-                 Entity.ClickEvent => StartQuitting]]]
+                 Entity.ClickEvent => StartQuitting]
+
+             // test exposition
+             Content.button "TestExposition"
+                [Entity.Position == v3 232.0f -104.0f 0.0f
+                 Entity.Text == "Test"
+                 Entity.ClickEvent => ShowExposition ("Hello, world!", Thought)]]]

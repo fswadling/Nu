@@ -1,6 +1,7 @@
 namespace MyGame3
 open Nu
 open System.Numerics
+open Prime
 
 type Character =
     | Player
@@ -50,7 +51,7 @@ module Character =
         [| if idleWeight > 0.0f then updateOrCreate idleAnimation idleWeight currentAnimations character
            if jogWeight > 0.0f then updateOrCreate jogAnimation jogWeight currentAnimations character |]
 
-type CharacterProp =
+type [<SymbolicExpansion>] CharacterProp =
     { Character: Character
       Position: Vector3
       Rotation: Quaternion

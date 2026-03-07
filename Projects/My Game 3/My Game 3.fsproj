@@ -43,12 +43,13 @@
 
 	<ItemGroup>
         <None Include="Assets\*" />
-        <None Include="Assets\*\*" />
+        <None Include="Assets\*\**" />
 		<Compile Include="Assets.fs" />
 		<Compile Include="Simulants.fs" />
 		<Compile Include="Events.fs" />
 		<Folder Include="Dispatchers\" />
 		<Compile Include="dispatchers\WaypointDispatcher.fs" />
+		<Compile Include="Exposition.fs" />
 		<Compile Include="Character.fs" />
 		<Compile Include="Zone.fs" />
 		<Compile Include="Gameplay.fs" />
@@ -85,7 +86,5 @@
 		<ProjectReference Include="..\..\Nu\Nu.Pipe\Nu.Pipe.fsproj" />
 		<ProjectReference Include="..\..\Nu\Nu.Spine\Nu.Spine.csproj" />
 	</ItemGroup>
-
-	<ItemGroup />
 
 </Project>
