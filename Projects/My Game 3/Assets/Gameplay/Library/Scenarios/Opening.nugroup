@@ -1,0 +1,183 @@
+[ScenarioDispatcher
+ [[Editing True]
+  [InitialCues
+   [[LibraryOpening
+     [[SetCamera InitialCamera]
+      [Wait 0.5]
+      [Exposit "So what was he like?" Dialogue]
+      [Exposit
+       "He was fine, seemed a little off though... like he didn't know what was going on."
+       [PortraitDialogue [Characters AkaneNeutral]]]
+      [Exposit "Was he cute?" Dialogue]
+      [Exposit
+       "Misa! Don't ask me that!"
+       [PortraitDialogue [Characters AkaneSurprised]]]
+      [Exposit "Why not? oh you're no fun..." Dialogue]
+      [Exposit "Is someone there?" Dialogue]
+      [LocomoteCharacter Akane AkaneWalkTo 1 Idle Walk]
+      [Exposit
+       "Oh hi! How long have you been standing there!"
+       [PortraitDialogue [Characters AkaneSurprised]]]
+      [FadeOut 1]
+      [MoveCharacter Akane AkanePosition2]
+      [MoveCharacter Player PlayerPosition2]
+      [MoveCharacter Misa MisaPosition2]
+      [FacialExpression Misa 3 1 0.2]
+      [SetCamera PanMisa]
+      [FadeIn 1]
+      [FlyCamera PanMisa 0.5]
+      [Exposit
+       "Hi i'm Misa! Nice to meet you!"
+       [PortraitDialogue [Characters MisaHappy]]]
+      [FadeOut 1]
+      [SetCamera ConversationCamera]
+      [FadeIn 1]
+      [Exposit
+       "We were just studying, we like to study in the morning before class."
+       [PortraitDialogue [Characters AkaneNeutral]]]
+      [Exposit
+       "Yeah Akane helps me study because she's super smart,and i'm well..."
+       [PortraitDialogue [Characters MisaHappy]]]
+      [FacialExpression Misa 3 0 0.3]
+      [FacialExpression Akane 3 1 0.3]
+      [Exposit
+       "Ehem, well this is the library, you can come here to study before and after class. There's books on just about evrything here."
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [FacialExpression Akane 3 0 0.3]
+      [FacialExpression Misa 3 1 0.3]
+      [Exposit
+       "And I hear there's a ghost that lives here."
+       [PortraitDialogue [Characters MisaHappy]]]
+      [FacialExpression Akane 4 1 0.3]
+      [Exposit
+       "Misa! don't be weird in front of the new boy, thats just a silly rumour!"
+       [PortraitDialogue [Characters AkaneSad]]]
+      [FacialExpression Akane 4 0 0.3]
+      [Exposit
+       "Anyway you should get to class, you don't want to be late!"
+       [PortraitDialogue [Characters AkaneNeutral]]]
+      [Advent MisaFirstMeeting]
+      [SwitchToZoneAndSwapPlayer Corridors LibraryExit]]
+     None]]]
+  [Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+  [Name Opening]
+  [Persistent True]]
+ [[AnimatedModelDispatcher
+   [[AnimatedModel [Characters Akane]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1.6
+       0.7
+       [Some
+        [[0 1.5 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Akane]
+    [Offset [0.017688692 0.76659626 -0.0588322]]
+    [Position [9.11 11.501373 50.770252]]
+    [Presence Interior]
+    [Rotation [0 0.7170626 0 0.6970088]]
+    [Size [1.4929366 1.7162763 0.45793855]]]
+   []]
+  [AnimatedModelDispatcher
+   [[AnimatedModel [Characters Misa]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 1] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1.6
+       0.7
+       [Some
+        [[0 1.5 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Misa]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [10.691646 11.501375 50.826054]]
+    [Rotation [0 -0.7069341 0 0.70727944]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [AnimatedModelDispatcher
+   [[AlwaysRender True]
+    [AnimatedModel [Characters Player]]
+    [Animations
+     [[[StartTime 2296] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Player]
+    [Offset [0.0008622408 0.78280914 0.0014061332]]
+    [Position [4.6907735 11.501374 54.25]]
+    [Rotation [0 0.9768039 0 0.21413593]]
+    [Size [1.4857945 1.6813631 0.68042964]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name InitialCamera]
+    [Position [1.9100873 13.568511 54.261158]]
+    [Rotation [-0.02926166 -0.465101 -0.015384341 0.8846415]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name AkaneWalkTo]
+    [Position [6.38 11.52 50.64]]
+    [Rotation [0 -0.30722934 0 0.9516355]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name AkanePosition2]
+    [Position [4.46 11.52 50.18]]
+    [Rotation [0 0.091969825 0 0.9957618]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name MisaPosition2]
+    [Position [6.68 11.51 50.35]]
+    [Rotation [0 -0.32597026 0 0.94538003]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name PlayerPosition2]
+    [Position [5.168502 11.52 52.009422]]
+    [Rotation [0 -0.9999975 0 0.0022243997]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name ConversationCamera]
+    [Position [6.178594 13.304841 53.145443]]
+    [Rotation [0.1340235 -0.17566499 -0.0241473 -0.97498465]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name PanMisa]
+    [Position [5.546905 11.724414 49.83081]]
+    [Rotation [0.031300902 0.86023223 0.053197607 -0.50615215]]]
+   [[PathDispatcher
+     [[MountOpt [Some Game/Library/Opening/PanMisa]]
+      [Name Node]
+      [Position [5.9418063 12.975197 51.34976]]
+      [Rotation [0.057868917 0.34716472 0.021469051 -0.9357704]]]
+     []]]]]]

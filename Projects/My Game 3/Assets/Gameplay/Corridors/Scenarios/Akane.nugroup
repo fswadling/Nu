@@ -1,0 +1,29 @@
+[ScenarioDispatcher
+[[Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+ [Name Akane]
+ [Persistent True]
+ [InitialCues []]
+ [Visible True]]
+ [[AnimatedModelDispatcher
+   [[AngularVelocity [-5.16787E-15 1.2629851E-22 1.6255239E-21]]
+    [AnimatedModel [Characters Akane]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [FacetNames [RigidBodyFacet]]
+    [LinearVelocity [-5.687425E-22 -8.189066E-36 -8.200215E-15]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Akane]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-41.57 -7.710401 -5.98]]
+    [Rotation [0 -0.9978533 0 0.065489195]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]]]

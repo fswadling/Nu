@@ -5,7 +5,7 @@
 const int MAX_MORPHS = 16;
 
 const int TEX_COORDS_OFFSET_VERTS = 6;
-const int BONES_MAX = 182;
+const int BONES_MAX = 210;
 const int BONES_INFLUENCE_MAX = 4;
 
 const vec2 TEX_COORDS_OFFSET_FILTERS[TEX_COORDS_OFFSET_VERTS] =
@@ -215,7 +215,7 @@ void main()
 
     // compute albedo, discarding fragment if even partly transparent
     vec4 albedoSample = texture(albedoTexture, texCoords);
-    if (albedoSample.a < ALBEDO_ALPHA_MIN) discard;
+    if (albedoSample.w < ALBEDO_ALPHA_MIN) discard;
     albedo = pow(albedoSample.rgb, vec3(GAMMA)) * albedoOut.rgb;
 
     // compute normal and ignore local height maps

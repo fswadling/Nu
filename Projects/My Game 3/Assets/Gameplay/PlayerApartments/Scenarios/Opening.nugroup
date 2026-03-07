@@ -1,0 +1,233 @@
+[ScenarioDispatcher
+[[InitialCues
+  [[Opening
+    [[Animation Player Reacting 1 0.1]
+      [SetCamera InitialCamera]
+      EnableFastForward
+      [Wait 1]
+      [Exposit "I'm... an anime character!" Thought]
+      [Forq
+       [[ChangeAnimation Player Reacting Idle 1 1]]]
+      [Forq
+       [[ChangeFacialExpression Player 5 21 1 1]]]
+      [Exposit "A teenage anime character?!" Thought]
+      [Exposit "Where on earth am I!?" Thought]
+      [ChangeFacialExpression Player 21 3 1 0.3]
+      [Exposit "Oh this must just be a dream..." Thought]
+      [FacialExpression Player 3 0 1]
+      [Exposit "Might as well explore a bit until I wake up" Thought]
+      [FlyCamera CameraWaypoint 1]
+      DisableFastForward
+      [CameraFollow Player]
+      [EnableMovement Player]
+      [AwaitSignal
+       [All
+        [[On ComputerInteracted] [On MangaInteracted] [On HifiInteracted]]]]
+      [Disable ComputerInteractable]
+      [Disable MangaInteractable]
+      [Disable HifiInteractable]
+      [DisableMovement Player]
+      [StopCameraFollow Player]
+      [FadeOut 1]
+      [SetCamera CameraAfterLookAround]
+      [MoveCharacter Player MoveToAfterInteractions]
+      [StopAllAnimations Player]
+      [Animation Player Idle 1 0]
+      [FadeIn 1]
+      EnableFastForward
+      [FacialExpression Player 10 1 0.1]
+      [Exposit "Looks like an old japanese bedroom." Thought]
+      [Exposit "It's a very vivid dream..." Thought]
+      [FacialExpression Player 10 0 0.1]
+      [FacialExpression Player 3 1 0.1]
+      [Exposit "Maybe I've been watching too much anime!" Thought]
+      [FacialExpression Player 3 0 0.1]
+      [Exposit Hello? Dialogue]
+      [FacialExpression Player 8 1 0.1]
+      [Exposit "Somebody is at the door." Thought]
+      [FacialExpression Player 8 0 0.1]
+      [FacialExpression Player 5 1 0.1]
+      [Exposit ! Thought]
+      [FadeOut 1]
+      [AddCharacter Akane AkaneAppear]
+      [ChangeAnimation Akane Idle StandingGreeting 1 0.1]
+      [SetCamera PanAkaneStart]
+      [PlaySong [Music Casual1]]
+      [FadeIn 1]
+      [Forq
+       [[FacialExpression Akane 3 1 1]]]
+      [FlyCamera PanAkaneStart 0.5]
+      [Forq
+       [[FacialExpression Akane 3 0 0.5]]]
+      [Forq
+       [[Wait 3] [ChangeAnimation Akane StandingGreeting Idle 1 0.5]]]
+      [FadeOut 1]
+      [SetCamera ConversationCamera]
+      [FadeIn 1]
+      [ChangeFacialExpression Player 5 21 1 0.1]
+      [Exposit
+       "Hi! Nice to meet you, I'm Akane!"
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [FacialExpression Akane 4 1 0.1]
+      [Exposit
+       "Er you were told that I was going to pick you up for school for your first day right?"
+       [PortraitDialogue [Characters AkaneSad]]]
+      [Forq
+       [[Emote Player [Emotes Emote16]]]]
+      [Exposit "I'm having dreams about anime schoolgirls now...." Thought]
+      [Exposit "I really need to get a girlfriend..." Thought]
+      [Exposit "I'll just play along for now." Thought]
+      [Forq
+       [[ChangeFacialExpression Player 21 3 1 0.1] [Wait 1] [FacialExpression Player 3 0 0.1]]]
+      [Exposit
+       "Er... yes I remember! My first day of school..."
+       [PortraitDialogue [Characters PlayerHappy]]]
+      [Forq
+       [[ChangeFacialExpression Akane 4 3 1 0.3] [Wait 1] [FacialExpression Akane 3 0 0.3]]]
+      [Exposit
+       "Nervous? I guess I would be too in your position, But don't worry, I'm sure you'll fit right in!"
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [Exposit "My position?" Thought]
+      [Forq
+       [[ChangeFacialExpression Akane 4 3 1 0.3] [Wait 1] [FacialExpression Akane 3 0 0.3]]]
+      [Exposit
+       "Anyway we don't want to be late, let's go!"
+       [PortraitDialogue [Characters AkaneHappy]]]
+      DisableFastForward
+      [Advent ApartmentOpeningComplete]]
+     None]]]
+  [Editing True]
+  [Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+  [Name OpeningPlayerApartment]
+  [Persistent True]]
+ [[AnimatedModelDispatcher
+   [[AnimatedModel [Characters Player]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Reacting] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1.6
+       0.7
+       [Some
+        [[0 1.5 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [Morphs
+     [[5 1]]]
+    [MountOpt [Some ^]]
+    [Name Player]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-39.185 -4.163744 -6.49]]
+    [Rotation [-0 1 -0 -4.371139E-08]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [PathDispatcher
+   [[MountOpt [Some ^]]
+    [Name CameraWaypoint]
+    [Position [-39.61 -2.667 -6.68]]
+    [Rotation [0 -0.70467955 0 0.7095257]]]
+   [[PathDispatcher
+     [[MountOpt [Some Game/PlayerApartment/OpeningPlayerApartment/CameraWaypoint]]
+      [Name Node]
+      [Position [-39.270523 -2.6228545 -5.4053664]]
+      [Rotation [-0.035058234 -0.01690845 -0.00038260958 0.9992421]]]
+     []]]]
+  [WaypointDispatcher
+   [[MountOpt [Some ^]]
+    [Name LookatWaypoint]
+    [Position [-38.59 -2.8174117 -5.622164]]]
+   []]
+  [WaypointDispatcher
+   [[AlwaysRender True]
+    [FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [InteractDoor
+       [[DisableMovement Player] [StopCameraFollow Player] [Exposit "The door wont open" Thought] [CameraFollow Player] [EnableMovement Player]]
+       None]]]
+    [InteractDistance 1]
+    [InteractPromptMessage "Press E to leave"]
+    [MountOpt [Some ^]]
+    [Name DoorInteractable]
+    [Position [-38.44 -4.14 -11.38]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [CheckComputer
+       [[DisableMovement Player] [StopCameraFollow Player] [Exposit "A CRT monitor? Retro..." Thought] [CameraFollow Player] [EnableMovement Player] [Broadcast ComputerInteracted]]
+       None]]]
+    [InteractDistance 1]
+    [MountOpt [Some ^]]
+    [Name ComputerInteractable]
+    [Position [-37.215366 -4.18 -6.91]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [InteractManga
+       [[DisableMovement Player] [StopCameraFollow Player] [Exposit "These are in japanese... is this Japan?" Thought] [CameraFollow Player] [EnableMovement Player] [Broadcast MangaInteracted]]
+       None]]]
+    [InteractDistance 1]
+    [MountOpt [Some ^]]
+    [Name MangaInteractable]
+    [Position [-36.87 -4.16 -9.01]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [InteractHiFi
+       [[DisableMovement Player] [StopCameraFollow Player] [Exposit "I haven't seen one of these in years." Thought] [CameraFollow Player] [EnableMovement Player] [Broadcast HifiInteracted]]
+       None]]]
+    [InteractDistance 1]
+    [MountOpt [Some ^]]
+    [Name HifiInteractable]
+    [Position [-40.93 -4.15 -6.35]]]
+   []]
+  [WaypointDispatcher
+   [[MountOpt [Some ^]]
+    [Name MoveToAfterInteractions]
+    [Position [-39.211475 -4.15 -8.302328]]
+    [Rotation [-0 1 -0 -4.371139E-08]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name AkaneAppear]
+    [Position [-38.96 -4.16 -9.489907]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name InitialCamera]
+    [Position [-39.355 -2.667 -7.326]]
+    [Rotation [0.0019998706 0.99808246 0.03500292 -0.051011585]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name CameraAfterLookAround]
+    [Position [-39.242855 -2.7110589 -9.068897]]
+    [Rotation [0.00021400962 0.9996612 0.025570167 -0.0048558456]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name ConversationCamera]
+    [Position [-40.10192 -2.578328 -8.677133]]
+    [Rotation [-0.03823758 -0.65068704 -0.032508627 0.7576856]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name PanAkaneStart]
+    [Position [-39.48319 -3.6659713 -9.248935]]
+    [Rotation [-0.044727284 -0.45750445 -0.022768337 0.8877898]]]
+   [[PathDispatcher
+     [[MountOpt [Some Game/PlayerApartment/OpeningPlayerApartment/PanAkaneStart]]
+      [Name PanAkaneEnd]
+      [Position [-38.93538 -2.7026398 -8.909618]]
+      [Rotation [-0.050186947 -0.014112026 -0.0004594449 0.99864]]]
+     []]]]]]

@@ -1,0 +1,162 @@
+[ScenarioDispatcher
+ [[Editing True]
+  [InitialCues
+   [[Opening
+     [[ChangeAnimation Player Idle Reacting 1 0]
+      [FacialExpression Akane 3 1 0]
+      [FacialExpression Player 5 1 0]
+      [SetCamera OpeningCamera]
+      [Exposit
+       "Well, Here we are!"
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [Exposit "How did we get here so fast!?" Thought]
+      [Exposit "Dream logic I suppose..." Thought]
+      [ChangeFacialExpression Akane 3 4 1 0.3]
+      [Exposit
+       "Um, are you ok?"
+       [PortraitDialogue [Characters AkaneSad]]]
+      [ChangeAnimation Player Reacting Idle 1 0.5]
+      [ChangeFacialExpression Player 5 3 1 0.3]
+      [Exposit
+       "Oh, it's nothing."
+       [PortraitDialogue [Characters PlayerHappy]]]
+      [FacialExpression Player 3 0 0.3]
+      [ChangeFacialExpression Akane 4 3 1 0.3]
+      [Exposit
+       "Ok then! Class doesn't start for a bit so why don't you go explore?"
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [Exposit
+       "When you're ready to begin, head to the class right behind me. I'll be studying in the library."
+       [PortraitDialogue [Characters AkaneHappy]]]
+      [ChangeFacialExpression Akane 4 3 0 0.3]
+      [LocomoteCharacter Akane AkaneWalkAway 1 Idle Walk]
+      [FadeOut 1]
+      [RemoveCharacter Akane]
+      [CameraFollow Player]
+      [FadeIn 1]
+      [Enable LookOutWindow]
+      [EnableMovement Player]]
+     None]]]
+  [Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+  [Name OpeningCorridors]
+  [Persistent True]]
+ [[AnimatedModelDispatcher
+   [[AnimatedModel [Characters Akane]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1.6
+       0.7
+       [Some
+        [[0 1.5 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Akane]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-38.69 -7.6949463 -6.85]]
+    [Presence Interior]
+    [Rotation [0 0.62376064 0 0.78161544]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [AnimatedModelDispatcher
+   [[AlwaysRender True]
+    [AnimatedModel [Characters Player]]
+    [Animations
+     [[[StartTime 135] [LifeTimeOpt None] [Name Jog] [Playback Loop] [Rate 30] [Weight 0] [BoneFilterOpt None]]
+      [[StartTime 2296] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Player]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-37.12 -7.699947 -7.04]]
+    [Rotation [0 -0.373915 0 0.927463]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name AkaneWalkAway]
+    [Position [-42.2 -7.69 -6.536309]]
+    [Rotation [0 -0.7010363 0 0.7131256]]]
+   []]
+  [WaypointDispatcher
+   [[Enabled False]
+    [FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [ObserveWindow
+       [[DisableMovement Player] [Exposit "There's nothing out there!" Thought] [Exposit "The school is just floating in the air!" Thought] [Exposit "I guess the details don't matter." Thought] [EnableMovement Player]]
+       None]]]
+    [MountOpt [Some ^]]
+    [Name LookOutWindow]
+    [Position [-37.451767 -6.566062 -8.45]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [GoToPool
+       [[IfElse
+         SakuraFirstMeeting
+         [[Exposit "Better not go out there again..." Thought]]
+         [[SwitchToZoneAndDeletePlayer SchoolPool]]]]
+       None]]]
+    [InteractPromptMessage "Press E to enter"]
+    [InvertZ True]
+    [MountOpt [Some ^]]
+    [Name PoolExit]
+    [Position [-38.13008 0.31 -4.09]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name OpeningCamera]
+    [Position [-37.521694 -5.898667 -5.1439495]]
+    [Rotation [-0.1833428 0.14178821 0.026733706 0.97240263]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [GoToArtRoom
+       [[IfElse
+         AikoFirstMeeting
+         [[Exposit "There's no need to go in there." Thought]]
+         [[SwitchToZoneAndDeletePlayer ArtRoom]]]]
+       None]]]
+    [InvertZ True]
+    [MountOpt [Some ^]]
+    [Name ArtRoomExit]
+    [Position [-42.38 -3.67 -6.65]]
+    [Rotation [0 -0.99980205 0 0.019897416]]]
+   []]
+  [WaypointDispatcher
+   [[FacetNames [InteractableFacet]]
+    [InteractCue
+     [Some
+      [GoToLibrary
+       [[IfElse
+         MisaFirstMeeting
+         [[Exposit "There's no need to go in there." Thought]]
+         [[SwitchToZoneAndDeletePlayer Library]]]]
+       None]]]
+    [InvertZ True]
+    [MountOpt [Some ^]]
+    [Name LibraryExit]
+    [Position [-60.65 -3.7 -6.85]]
+    [Rotation [0 0.7319723 0 0.6813344]]]
+   []]]]

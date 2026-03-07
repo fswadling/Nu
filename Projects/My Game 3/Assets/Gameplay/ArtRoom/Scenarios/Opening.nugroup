@@ -1,0 +1,142 @@
+[ScenarioDispatcher
+ [[Editing True]
+  [InitialCues
+   [[MeetAiko
+     [[StopCameraFollow Player]
+      [SetCamera InitialCamera]
+      [Wait 0.3]
+      [ChangeAnimation Player Idle Reacting 1 0.5]
+      [FadeOut 1]
+      [SetCamera PanAiko]
+      [FadeIn 1]
+      [FlyCamera PanAiko 0.5]
+      [ChangeAnimation Aiko Idle Walk 1 0.1]
+      [TurnCharacter Aiko -180 1]
+      [ChangeAnimation Aiko Walk Reacting 1 0.1]
+      [FacialExpression Aiko 5 1 0.3]
+      [FadeOut 1]
+      [ChangeAnimation Player Reacting Idle 1 0]
+      [MoveCharacter Player PlayerPosition]
+      [SetCamera ConversationCamera]
+      [FadeIn 1]
+      [Wait 1]
+      [Exposit
+       "Wahh! You surprised me!"
+       [PortraitDialogue [Characters AikoSurprised]]]
+      [FacialExpression Aiko 5 0 0.3]
+      [ChangeAnimation Aiko Reacting Idle 1 0.1]
+      [Exposit
+       "Oh you must be the new guy!"
+       [PortraitDialogue [Characters AikoHappy]]]
+      [Exposit "She's tiny, is she like a kid or something?" Thought]
+      [FacialExpression Aiko 4 1 0.3]
+      [Exposit
+       "Hey what are you staring at?"
+       [PortraitDialogue [Characters AikoAngry]]]
+      [Exposit
+       "Er, nothing!"
+       [PortraitDialogue [Characters PlayerHappy]]]
+      [FacialExpression Aiko 4 0 0.2]
+      [Exposit
+       "What are you doing here anyway? Class is downstairs, this is the art room."
+       [PortraitDialogue [Characters AikoNeutral]]]
+      [Exposit
+       "Oh I was just having a look around."
+       [PortraitDialogue [Characters PlayerHappy]]]
+      [FacialExpression Aiko 3 1 0.3]
+      [Exposit
+       "Well i'm Aiko, nice to meet you!"
+       [PortraitDialogue [Characters AikoHappy]]]
+      [Exposit
+       "I like to come here between classes... art is my favorite class."
+       [PortraitDialogue [Characters AikoHappy]]]
+      [FacialExpression Aiko 3 0 0.3]
+      [Exposit
+       "Class will start soon, i'll meet you down there!"
+       [PortraitDialogue [Characters AikoHappy]]]
+      [Advent AikoFirstMeeting]
+      [SwitchToZoneAndSwapPlayer Corridors ArtRoomExit]]
+     None]]]
+  [Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+  [Name Opening]
+  [Persistent True]]
+ [[AnimatedModelDispatcher
+   [[AnimatedModel [Characters Aiko]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Aiko]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-6.0600014 1.1318252 2.05]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [AnimatedModelDispatcher
+   [[AlwaysRender True]
+    [AnimatedModel [Characters Player]]
+    [Animations
+     [[[StartTime 2296] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Player]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-0.28439674 1.1318254 -3.02]]
+    [Rotation [0 -0.23052403 0 0.9730666]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name InitialCamera]
+    [Position [-0.18402626 2.9208043 -3.9388237]]
+    [Rotation [0.0242548 -0.9756986 -0.15840097 -0.14940202]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name PanAiko]
+    [Position [-5.9752297 1.1933773 1.4401435]]
+    [Rotation [-3.5984867E-05 -0.9999046 0.013099 -0.002743198]]]
+   [[PathDispatcher
+     [[MountOpt [Some Game/ArtRoom/Opening/PanAiko]]
+      [Name Node]
+      [Position [-5.974564 2.5377684 1.4049232]]
+      [Rotation [-0.00035635813 -0.999538 0.013094202 -0.027198687]]]
+     []]]]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name Turnaround]
+    [Position [-5.98 1.16 1.7]]
+    [Rotation [0 0.99994165 0 0.010802015]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name PlayerPosition]
+    [Position [-6.08 1.15 0.42]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name ConversationCamera]
+    [Position [-7.6334214 2.8967254 1.3486798]]
+    [Rotation [0.13728806 0.7066501 0.14282343 -0.6792626]]]
+   []]]]

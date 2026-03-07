@@ -1,0 +1,171 @@
+[ScenarioDispatcher
+[[InitialCues
+  [[Opening
+    [[SetCamera OpeningStartCamera]
+      [Exposit "Oh wow thais pDace has a rooftop pool!" Thought]
+      [Exposit "Hey! what do you think you're doing?" Dialogue]
+      [LocomoteCharacter Player FaceSakura 1 Idle Walk]
+      [FacialExpression Player 21 1 0.3]
+      [ChangeAnimation Player Idle Reacting 1 0.5]
+      [FadeOut 1]
+      [SetCamera SakuraPan]
+      [FadeIn 1]
+      [FlyCamera SakuraPan 0.5]
+      [Wait 2]
+      [FadeOut 1]
+      [MoveCharacter [Sakura Swimwear] SakuraComeover]
+      [SetCamera ConversationCamera]
+      [FadeIn 1]
+      [Exposit
+       "Did you come here to peek on me in my swimsuit!? Pervert!"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit "More anime schoolgirls? Oh no this looks bad..." Thought]
+      [Exposit
+       "Well? What do you have to say for yourself?"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit
+       "No it's not like that! I didn't know anyone was up here!"
+       [PortraitDialogue [Characters PlayerSurpised]]]
+      [Exposit
+       "A likely story! You must be that new boy who's starting today. Why am I not surprised you're a pervert?"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit
+       "Akane said to go explore before class starts! She didn't mention anyone being up here I swear! You can ask her!"
+       [PortraitDialogue [Characters PlayerSurpised]]]
+      [Exposit
+       "Hmm, I suppose there's no reason you'd assume anyone would be practicing swimming before class."
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit
+       "You'd better hope Akane can back up what you say! Because if not i'll report you to Hana-sensei!"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit
+       "The name's Sakura! And don't you forget it!"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Exposit
+       "Now get out of here!"
+       [PortraitDialogue [Characters SakuraSwimsuitAngry]]]
+      [Advent SakuraFirstMeeting]
+      [SwitchToZoneAndSwapPlayer Corridors PoolExit]]
+     None]]]
+  [Editing True]
+  [Model ["Microsoft.FSharp.Core.Unit, FSharp.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" []]]
+  [Name Opening]
+  [Persistent True]]
+ [[AnimatedModelDispatcher
+   [[AlwaysRender True]
+    [AnimatedModel [Characters Player]]
+    [Animations
+     [[[StartTime 2296] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [MountOpt [Some ^]]
+    [Name Player]
+    [Offset [0.0008622408 0.78280914 0.0014061332]]
+    [Position [-41.39431 1.6352971 -13.25]]
+    [Size [1.4857945 1.6813631 0.68042964]]]
+   []]
+  [AnimatedModelDispatcher
+   [[AnimatedModel [Characters SakuraSwimsuit]]
+    [Animations
+     [[[StartTime 0] [LifeTimeOpt None] [Name Angry] [Playback Loop] [Rate 30] [Weight 1] [BoneFilterOpt None]]]]
+    [BodyShape
+     [CapsuleShape
+      [1
+       0.35
+       [Some
+        [[0 0.85 0] [0 0 0 1] [1 1 1]]]
+       None]]]
+    [BodyType KinematicCharacter]
+    [FacetNames [RigidBodyFacet]]
+    [MaterialProperties
+     [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+    [Morphs
+     [[1 1]]]
+    [MountOpt [Some ^]]
+    [Name Sakura]
+    [Offset [4.172325E-07 0.8748163 -0.01317589]]
+    [Position [-36.431244 1.65 -12.83]]
+    [Rotation [0 -0.74489504 0 0.6671817]]
+    [Size [1.64518 1.752576 0.3649045]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name FaceSakura]
+    [Position [-41.07 1.64 -13.01]]
+    [Rotation [0 0.65336275 0 0.75704503]]]
+   []]
+  [WaypointDispatcher
+   [[InvertZ True]
+    [MountOpt [Some ^]]
+    [Name SakuraComeover]
+    [Position [-39.78 1.63 -12.798624]]
+    [Rotation [0 -0.70887774 0 0.7053314]]]
+   []]
+  [PathDispatcher
+   [[MountOpt [Some ^]]
+    [Name SakuraPan]
+    [Position [-37.15494 1.7635232 -12.207493]]
+    [Rotation [-0.002873052 -0.4563297 -0.0056020957 0.8897885]]]
+   [[PathDispatcher
+     [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan]]
+      [Name Node]
+      [Position [-36.676155 2.0537903 -11.907035]]
+      [Rotation [-0.10488246 -0.13638344 -0.016319549 0.9849532]]]
+     [[PathDispatcher
+       [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node]]
+        [Name Node]
+        [Position [-36.20761 2.1011639 -11.9848175]]
+        [Rotation [-0.06470658 0.18590622 0.012269903 0.9803578]]]
+       [[PathDispatcher
+         [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node]]
+          [Name Node]
+          [Position [-35.650288 2.1962457 -12.697259]]
+          [Rotation [0.10748352 0.66329646 -0.09710364 0.7342043]]]
+         [[PathDispatcher
+           [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node/Node]]
+            [Name Node]
+            [Position [-35.847557 2.523461 -13.229214]]
+            [Rotation [-0.0072134044 0.89475214 0.0144615155 0.44627059]]]
+           [[PathDispatcher
+             [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node/Node/Node]]
+              [Name Node]
+              [Position [-36.56663 2.5207973 -13.480566]]
+              [Rotation [0.0023567986 0.98917556 0.01598794 -0.14584422]]]
+             [[PathDispatcher
+               [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node/Node/Node/Node]]
+                [Name Node]
+                [Position [-36.8915 2.5138044 -12.8369875]]
+                [Rotation [-0.011653872 -0.69269466 -0.011196231 0.7210499]]]
+               [[PathDispatcher
+                 [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node/Node/Node/Node/Node]]
+                  [Name Node]
+                  [Position [-36.885635 2.6952631 -12.837221]]
+                  [Rotation [-0.011653872 -0.69269466 -0.011196231 0.7210499]]]
+                 [[PathDispatcher
+                   [[MountOpt [Some Game/SchoolPool/Opening/SakuraPan/Node/Node/Node/Node/Node/Node/Node]]
+                    [Name Node]
+                    [Position [-37.09184 2.9710646 -12.828949]]
+                    [Rotation [-0.020609543 -0.6925024 -0.019799732 0.7208493]]]
+                   []]]]]]]]]]]]]]]]]]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name OpeningStartCamera]
+    [Position [-41.788662 3.3086684 -14.434788]]
+    [Rotation [0.022972494 0.9770239 0.15108944 -0.1485549]]]
+   []]
+  [PathDispatcher
+   [[MountOpt None]
+    [Name ConversationCamera]
+    [Position [-41.08507 3.353864 -14.238362]]
+    [Rotation [0.03187108 0.96652365 0.1494665 -0.2060971]]]
+   []]]]

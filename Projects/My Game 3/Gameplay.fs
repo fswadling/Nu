@@ -47,6 +47,7 @@ type GameplayMessage =
     | StartPlaying
     | TimeUpdate
     | AvatarPhysicsUpdate of BodyTransformData
+    | ActorPhysicsUpdate of Character * BodyTransformData
     | AddActor of Character * Position:Vector3 * Rotation:Quaternion
     | AddActorAtStart of Character
     | RemoveActor of Character
@@ -87,14 +88,18 @@ type GameplayDispatcher () =
         else Gameplay.empty
 
     // here we define the screen's property values and event handling
-    override this.Definitions (_, _) =
+    override this.Definitions (gameplay, _) =
         [Screen.SelectEvent => StartPlaying
          Screen.TimeUpdateEvent => TimeUpdate
          Screen.UpdateEvent => ProcessAvatarInput
          Screen.UpdateEvent => UpdateExposition
          Game.KeyboardKeyDownEvent =|> fun data ->
             if data.Data.KeyboardKey = KeyboardKey.E then AdvanceExposition else Nil
-         Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)]
+         Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)
+         for actor in gameplay.GameplayState.Actors do
+            let name = Character.toName actor.Character
+            let entity = Simulants.GameplayScene / name
+            entity.BodyTransformEvent =|> fun evt -> ActorPhysicsUpdate (actor.Character, evt.Data)]
 
     // here we handle the above messages
     override this.Message (gameplay, message, _, world) =
@@ -111,7 +116,7 @@ type GameplayDispatcher () =
                   Rotation = rotation
                   Animations = Array.empty
                   Morphs = Array.empty }
-            
+
             let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some player }
             withSignal (WarpAvatar (position, rotation)) gameplay
 
@@ -124,6 +129,15 @@ type GameplayDispatcher () =
                     Position = data.BodyCenter
                     Rotation = data.BodyRotation }
             let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some avatar }
+            just gameplay
+
+        | ActorPhysicsUpdate (character, data) ->
+            let actors =
+                gameplay.GameplayState.Actors |> Array.map (fun a ->
+                    if a.Character = character
+                    then { a with Position = data.BodyCenter; Rotation = data.BodyRotation }
+                    else a)
+            let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
         | TimeUpdate ->
@@ -266,11 +280,14 @@ type GameplayDispatcher () =
               for actor in gameplay.GameplayState.Actors do
                   let name = Character.toName actor.Character
                   let path = Character.toPath actor.Character
+                  let character = actor.Character
                   Content.entityFromFile name path
-                      [Entity.Position == actor.Position
-                       Entity.Rotation == actor.Rotation
+                      [Entity.Position := actor.Position
+                       Entity.Rotation := actor.Rotation
                        Entity.Animations := actor.Animations
-                       Entity.Morphs := actor.Morphs]]
+                       Entity.PhysicsMotion == PhysicsMotion.ManualMotion
+                       Entity.Morphs := actor.Morphs
+                       Entity.BodyTransformEvent =|> fun evt -> ActorPhysicsUpdate (character, evt.Data)]]
 
          Content.group Simulants.GameplayGui.Name []
             [// exposition

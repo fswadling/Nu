@@ -1,0 +1,21 @@
+[AnimatedModelDispatcher
+ [[AnimatedModel [Characters Hana]]
+  [Animations
+   [[[StartTime 0] [LifeTimeOpt None] [Name Idle] [Playback Loop] [Rate 1] [Weight 1] [BoneFilterOpt None]]]]
+  [BodyShape
+   [CapsuleShape
+    [1.6
+     0.7
+     [Some
+      [[0 1.5 0] [0 0 0 1] [1 1 1]]]
+     None]]]
+  [BodyType KinematicCharacter]
+  [FacetNames [RigidBodyFacet]]
+  [MaterialProperties
+   [[AlbedoOpt None] [RoughnessOpt None] [MetallicOpt None] [AmbientOcclusionOpt None] [EmissionOpt None] [HeightOpt None] [IgnoreLightMapsOpt None] [OpaqueDistanceOpt None] [FinenessOffsetOpt None] [ScatterTypeOpt None] [SpecularScalarOpt None] [SubsurfaceCutoffOpt None] [SubsurfaceCutoffMarginOpt None] [RefractiveIndexOpt None] [ClearCoatOpt None] [ClearCoatRoughnessOpt None] [IsUnlit False] [IsToon True]]]
+  [MountOpt [Some ^]]
+  [Name Hana]
+  [Offset [4.172325E-07 0.8748163 -0.01317589]]
+  [Position [-36.46704 -7.6949463 -6.867761]]
+  [Size [1.64518 1.752576 0.3649045]]]
+ []]
