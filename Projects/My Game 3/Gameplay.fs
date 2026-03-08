@@ -70,6 +70,7 @@ type GameplayMessage =
     | UpdateExposition
     | RunCue of Cue
     | StepCues
+    | CameraFollow
     interface Message
 
 // this is our gameplay MMCC command type.
@@ -77,7 +78,7 @@ type GameplayCommand =
     | StartQuitting
     | WarpAvatar of Position:Vector3 * Rotation:Quaternion
     | ProcessAvatarInput
-    | UpdateCameraFollow
+    | SetCamera of Position:Vector3 * Rotation:Quaternion
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -214,12 +215,12 @@ type GameplayDispatcher () =
             let rotations = nodeData |> List.map snd |> Array.ofList
             let initialPos = pathEntity.GetPosition world
             let initialRot = pathEntity.GetRotation world
-            do World.setEye3dCenter initialPos world
-            do World.setEye3dRotation initialRot world
-            if points.Length < 2 || speed <= 0.0f then (Fin, just gameplay) else
+            if points.Length < 2 || speed <= 0.0f then
+                (Fin, withSignal (SetCamera (initialPos, initialRot)) gameplay)
+            else
             let totalLength = Maths.approxSplineLength points 10
             let durationSeconds = totalLength / speed
-            (FlyCameraState (points, rotations, durationSeconds, world.GameTime), just gameplay)
+            (FlyCameraState (points, rotations, durationSeconds, world.GameTime), withSignal (SetCamera (initialPos, initialRot)) gameplay)
 
         | FlyCameraState (points, rotations, durationSeconds, startTime) ->
             let elapsed = single (world.GameTime - startTime).Seconds
@@ -227,15 +228,11 @@ type GameplayDispatcher () =
             if t >= 1.0f then
                 let finalPos = Maths.evalSpline points 1.0f
                 let finalRot = Maths.slerpAlongPath rotations 1.0f
-                do World.setEye3dCenter finalPos world
-                do World.setEye3dRotation finalRot world
-                (Fin, just gameplay)
+                (Fin, withSignal (SetCamera (finalPos, finalRot)) gameplay)
             else
             let pos = Maths.evalSpline points t
             let rot = Maths.slerpAlongPath rotations t
-            do World.setEye3dCenter pos world
-            do World.setEye3dRotation rot world
-            (cue, just gameplay)
+            (cue, withSignal (SetCamera (pos, rot)) gameplay)
 
         | Fork cue ->
             updateCue cue gameplay world
@@ -318,7 +315,7 @@ type GameplayDispatcher () =
          if gameplay.GameplayState.AvatarMovementEnabled then
             Screen.UpdateEvent => ProcessAvatarInput
          if gameplay.GameplayState.CameraFollowEnabled then
-            Screen.UpdateEvent => UpdateCameraFollow
+            Screen.UpdateEvent => CameraFollow
          Screen.UpdateEvent => StepCues
          Screen.UpdateEvent => UpdateExposition
          Game.KeyboardKeyDownEvent =|> fun data ->
@@ -439,6 +436,15 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Cue = cue }
             withSignals signals gameplay
 
+        | CameraFollow ->
+            match gameplay.GameplayState.Avatar with
+            | None -> just gameplay
+            | Some avatar ->
+            let rotation = avatar.Rotation
+            let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
+            let position = avatar.Position + v3Up * 1.40f - cameraRotation.Forward
+            withSignal (SetCamera (position, cameraRotation)) gameplay
+
     // here we handle the above commands
     override this.Command (gameplay, command, screen, world) =
         match command with
@@ -490,15 +496,9 @@ type GameplayDispatcher () =
             let gameplayState = { gameplay.GameplayState with Avatar = Some avatar }
             do screen.SetGameplay { gameplay with GameplayState = gameplayState } world
 
-        | UpdateCameraFollow ->
-            match gameplay.GameplayState.Avatar with
-            | None -> ()
-            | Some avatar ->
-
-            let rotation = avatar.Rotation
-            let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
-            do World.setEye3dCenter (avatar.Position + v3Up * 1.40f - cameraRotation.Forward) world
-            do World.setEye3dRotation cameraRotation world
+        | SetCamera (position, rotation) ->
+            do World.setEye3dCenter position world
+            do World.setEye3dRotation rotation world
 
     
 
