@@ -11,7 +11,7 @@ type [<SymbolicExpansion>] GameplayState =
       Actors :CharacterProp array
       Exposition: Exposition option
       Cue : Cue
-      Advents : Advent array
+      Advents : Advent HSet
       Fade : single
       AvatarMovementEnabled : bool
       CameraFollowEnabled : bool }
@@ -23,7 +23,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
-          Advents = Array.empty
+          Advents = HSet.makeEmpty ()
           Fade = 0.0f
           AvatarMovementEnabled = false
           CameraFollowEnabled = false }
@@ -34,7 +34,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
-          Advents = Array.empty
+          Advents = HSet.makeEmpty ()
           Fade = 0.0f
           AvatarMovementEnabled = true
           CameraFollowEnabled = true }
@@ -136,10 +136,7 @@ type GameplayDispatcher () =
             (Fin, just gameplay)
 
         | Cue.AddAdvent advent ->
-            let advents =
-                if Array.contains advent gameplay.GameplayState.Advents
-                then gameplay.GameplayState.Advents
-                else Array.append gameplay.GameplayState.Advents [|advent|]
+            let advents = HSet.add advent gameplay.GameplayState.Advents
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
             (Fin, just gameplay)
 
@@ -188,7 +185,7 @@ type GameplayDispatcher () =
             updateCue cue gameplay world
 
         | If (advent, thenCue, elseCue) ->
-            if Array.contains advent gameplay.GameplayState.Advents
+            if HSet.contains advent gameplay.GameplayState.Advents
             then updateCue thenCue gameplay world
             else updateCue elseCue gameplay world
 
