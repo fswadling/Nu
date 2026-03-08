@@ -42,8 +42,9 @@
 	</Target>
 
 	<ItemGroup>
-		<None Include="Assets\*" />
-		<None Include="Assets\*\**" />
+        <None Include="Assets\*" />
+        <None Include="Assets\*\**" />
+        <Compile Include="Advent.fs" />
 		<Compile Include="Assets.fs" />
 		<Compile Include="Simulants.fs" />
 		<Compile Include="Events.fs" />
@@ -52,7 +53,7 @@
 		<Compile Include="Exposition.fs" />
 		<Compile Include="Character.fs" />
 		<Compile Include="Zone.fs" />
-		<Compile Include="Advent.fs" />
+		<Compile Include="Cue.fs" />
 		<Compile Include="Cue.fs" />
 		<Compile Include="Gameplay.fs" />
 		<Compile Include="MyGame3.fs" />

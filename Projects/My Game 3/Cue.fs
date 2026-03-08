@@ -13,6 +13,7 @@ type Cue =
     | AddActor of Character:Character * SpawnPoint:string
     | RemoveActor of Character:Character
     | Exposit of Text:string * Variant:ExpositVariant
+    | AddAdvent of Advent
     // === Time-based ops ===
     | Wait of Duration:single
     | WaitState of EndTime:GameTime
@@ -24,3 +25,4 @@ type Cue =
     | Sequence of Cue FDeque
     | Parallel of Cue FDeque
     | Fork of Cue
+    | If of Advent * Then:Cue * Else:Cue

@@ -11,6 +11,7 @@ type [<SymbolicExpansion>] GameplayState =
       Actors :CharacterProp array
       Exposition: Exposition option
       Cue : Cue
+      Advents : Advent array
       Fade : single
       AvatarMovementEnabled : bool
       CameraFollowEnabled : bool }
@@ -22,6 +23,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
+          Advents = Array.empty
           Fade = 0.0f
           AvatarMovementEnabled = false
           CameraFollowEnabled = false }
@@ -32,6 +34,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
+          Advents = Array.empty
           Fade = 0.0f
           AvatarMovementEnabled = true
           CameraFollowEnabled = true }
@@ -132,6 +135,14 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
             (Fin, just gameplay)
 
+        | Cue.AddAdvent advent ->
+            let advents =
+                if Array.contains advent gameplay.GameplayState.Advents
+                then gameplay.GameplayState.Advents
+                else Array.append gameplay.GameplayState.Advents [|advent|]
+            let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
+            (Fin, just gameplay)
+
         | Wait duration ->
             let endTime = world.GameTime + GameTime.ofSeconds (double duration)
             (WaitState endTime, just gameplay)
@@ -175,6 +186,11 @@ type GameplayDispatcher () =
 
         | Fork cue ->
             updateCue cue gameplay world
+
+        | If (advent, thenCue, elseCue) ->
+            if Array.contains advent gameplay.GameplayState.Advents
+            then updateCue thenCue gameplay world
+            else updateCue elseCue gameplay world
 
         | Sequence cues ->
             // Fold over each cue in order. Accumulator tracks:
