@@ -133,7 +133,12 @@ type GameplayDispatcher () =
         | Cue.Exposit (text, variant) ->
             let exposition = Exposition.make text variant
             let gameplay = { gameplay with Gameplay.GameplayState.Exposition = Some exposition }
-            (Fin, just gameplay)
+            (ExpositState, just gameplay)
+
+        | ExpositState ->
+            match gameplay.GameplayState.Exposition with
+            | None -> (Fin, just gameplay)
+            | Some _ -> (cue, just gameplay)
 
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
@@ -200,6 +205,36 @@ type GameplayDispatcher () =
             let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
             let fade = initialFade + t * (0.0f - initialFade)
             let gameplay = { gameplay with Gameplay.GameplayState.Fade = fade }
+            (cue, just gameplay)
+
+        | Cue.FlyCamera (path, speed) ->
+            let pathEntity = Simulants.GameplayScene / path
+            let nodeData = pathEntity.GetNodePositionsAndRotations world
+            let points = nodeData |> List.map fst |> Array.ofList
+            let rotations = nodeData |> List.map snd |> Array.ofList
+            let initialPos = pathEntity.GetPosition world
+            let initialRot = pathEntity.GetRotation world
+            do World.setEye3dCenter initialPos world
+            do World.setEye3dRotation initialRot world
+            if points.Length < 2 || speed <= 0.0f then (Fin, just gameplay) else
+            let totalLength = Maths.approxSplineLength points 10
+            let durationSeconds = totalLength / speed
+            (FlyCameraState (points, rotations, durationSeconds, world.GameTime), just gameplay)
+
+        | FlyCameraState (points, rotations, durationSeconds, startTime) ->
+            let elapsed = single (world.GameTime - startTime).Seconds
+            let t = elapsed / durationSeconds |> max 0.0f |> min 1.0f
+            if t >= 1.0f then
+                let finalPos = Maths.evalSpline points 1.0f
+                let finalRot = Maths.slerpAlongPath rotations 1.0f
+                do World.setEye3dCenter finalPos world
+                do World.setEye3dRotation finalRot world
+                (Fin, just gameplay)
+            else
+            let pos = Maths.evalSpline points t
+            let rot = Maths.slerpAlongPath rotations t
+            do World.setEye3dCenter pos world
+            do World.setEye3dRotation rot world
             (cue, just gameplay)
 
         | Fork cue ->
@@ -284,8 +319,8 @@ type GameplayDispatcher () =
             Screen.UpdateEvent => ProcessAvatarInput
          if gameplay.GameplayState.CameraFollowEnabled then
             Screen.UpdateEvent => UpdateCameraFollow
-         Screen.UpdateEvent => UpdateExposition
          Screen.UpdateEvent => StepCues
+         Screen.UpdateEvent => UpdateExposition
          Game.KeyboardKeyDownEvent =|> fun data ->
             if data.Data.KeyboardKey = KeyboardKey.E then AdvanceExposition else Nil
          Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)

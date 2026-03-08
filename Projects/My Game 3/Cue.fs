@@ -1,5 +1,6 @@
 namespace MyGame3
 
+open System.Numerics
 open Prime
 open Nu
 
@@ -12,7 +13,6 @@ type Cue =
     | Print of string
     | AddActor of Character:Character * SpawnPoint:string
     | RemoveActor of Character:Character
-    | Exposit of Text:string * Variant:ExpositVariant
     | AddAdvent of Advent
     | EnableCameraFollow
     | DisableCameraFollow
@@ -25,6 +25,10 @@ type Cue =
     | FadeOutState of InitialFade:single * StartTime:GameTime * EndTime:GameTime
     | FadeIn of Duration:single
     | FadeInState of InitialFade:single * StartTime:GameTime * EndTime:GameTime
+    | FlyCamera of Path:string * Speed:single
+    | FlyCameraState of Points:Vector3 array * Rotations:Quaternion array * DurationSeconds:single * StartTime:GameTime
+    | Exposit of Text:string * Variant:ExpositVariant
+    | ExpositState
     // === Control flow ===
     | Sequence of Cue FDeque
     | Parallel of Cue FDeque

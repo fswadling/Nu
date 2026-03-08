@@ -45,6 +45,7 @@
 		<None Include="Assets\*" />
 		<None Include="Assets\*\**" />
 		<Compile Include="Assets.fs" />
+		<Compile Include="Maths.fs" />
 		<Compile Include="Simulants.fs" />
 		<Compile Include="Events.fs" />
 		<Folder Include="Dispatchers\" />
