@@ -16,11 +16,11 @@ type Cue =
     // === Time-based ops ===
     | Wait of Duration:single
     | WaitState of EndTime:GameTime
+    | FadeOut of Duration:single
+    | FadeOutState of InitialFade:single * StartTime:GameTime * EndTime:GameTime
+    | FadeIn of Duration:single
+    | FadeInState of InitialFade:single * StartTime:GameTime * EndTime:GameTime
     // === Control flow ===
     | Sequence of Cue FDeque
     | Parallel of Cue FDeque
-
-[<RequireQualifiedAccess>]
-module Cue =
-    let isFin = function Fin -> true | _ -> false
-    let notFin = function Fin -> false | _ -> true
+    | Fork of Cue

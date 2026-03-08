@@ -1,5 +1,4 @@
 ﻿namespace MyGame3
-open System
 open System.Numerics
 open Prime
 open Nu
@@ -12,6 +11,7 @@ type [<SymbolicExpansion>] GameplayState =
       Actors :CharacterProp array
       Exposition: Exposition option
       Cue : Cue
+      Fade : single
       AvatarMovementEnabled : bool
       CameraFollowEnabled : bool }
 
@@ -22,6 +22,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
+          Fade = 0.0f
           AvatarMovementEnabled = false
           CameraFollowEnabled = false }
 
@@ -31,6 +32,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
+          Fade = 0.0f
           AvatarMovementEnabled = true
           CameraFollowEnabled = true }
 
@@ -139,28 +141,90 @@ type GameplayDispatcher () =
             then (Fin, just gameplay)
             else (cue, just gameplay)
 
+        | Cue.FadeOut duration ->
+            let initialFade = gameplay.GameplayState.Fade
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (FadeOutState (initialFade, startTime, endTime), just gameplay)
+
+        | FadeOutState (initialFade, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = { gameplay with Gameplay.GameplayState.Fade = 1.0f }
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let fade = initialFade + t * (1.0f - initialFade)
+            let gameplay = { gameplay with Gameplay.GameplayState.Fade = fade }
+            (cue, just gameplay)
+
+        | Cue.FadeIn duration ->
+            let initialFade = gameplay.GameplayState.Fade
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (FadeInState (initialFade, startTime, endTime), just gameplay)
+
+        | FadeInState (initialFade, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = { gameplay with Gameplay.GameplayState.Fade = 0.0f }
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let fade = initialFade + t * (0.0f - initialFade)
+            let gameplay = { gameplay with Gameplay.GameplayState.Fade = fade }
+            (cue, just gameplay)
+
+        | Fork cue ->
+            updateCue cue gameplay world
+
         | Sequence cues ->
-            let stepSequence (halted, haltedCues, (signals: Signal FDeque, gameplay)) cue =
-                if halted then (halted, FDeque.conj cue haltedCues, (signals, gameplay)) else
+            // Fold over each cue in order. Accumulator tracks:
+            //   halted     - whether a previous cue blocked (still running), so remaining cues are deferred
+            //   haltedCues - the blocked cue + all subsequent unprocessed cues
+            //   forkedCues - cues collected from Fork ops, to be run in parallel alongside the main sequence
+            //   signals    - accumulated signals from processed cues
+            //   gameplay   - threaded gameplay state
+            let stepSequence (halted, haltedCues, forkedCues, (signals: Signal FDeque, gameplay)) cue =
+                // if a previous cue blocked, just append this cue to the deferred queue
+                if halted then (halted, FDeque.conj cue haltedCues, forkedCues, (signals, gameplay)) else
+                match cue with
+                // Fork: collect the forked cue to run in parallel later, don't block the sequence
+                | Fork forkedCue -> (false, FDeque.empty, FDeque.conj forkedCue forkedCues, (signals, gameplay))
+                | _ ->
+                // process the cue normally
                 let (cue, (signals2, gameplay)) = updateCue cue gameplay world
                 let signals = List.fold (fun acc s -> FDeque.conj s acc) signals signals2
-                if Cue.isFin cue
-                then (false, FDeque.empty, (signals, gameplay))
-                else (true, FDeque.conj cue FDeque.empty, (signals, gameplay))
+                if cue.IsFin
+                // cue completed instantly — continue to the next cue in the sequence
+                then (false, FDeque.empty, forkedCues, (signals, gameplay))
+                // cue blocked — mark as halted so remaining cues are deferred
+                else (true, FDeque.conj cue FDeque.empty, forkedCues, (signals, gameplay))
 
-            let (_, haltedCues, (signals, gameplay)) =
-                FDeque.fold stepSequence (false, FDeque.empty, (FDeque.empty, gameplay)) cues
+            let (_, haltedCues, forkedCues, (signals, gameplay)) =
+                FDeque.fold stepSequence (false, FDeque.empty, FDeque.empty, (FDeque.empty, gameplay)) cues
 
             let signals = Seq.toList signals
-            if FDeque.isEmpty haltedCues
-            then (Fin, (signals, gameplay))
-            else (Sequence haltedCues, (signals, gameplay))
+            // build the remaining main sequence (Fin if everything completed)
+            let mainCue =
+                if FDeque.isEmpty haltedCues 
+                then Fin
+                else Sequence haltedCues
+            // if no forks were encountered, return the main sequence as-is
+            if FDeque.isEmpty forkedCues then
+                (mainCue, (signals, gameplay))
+            else
+            // forks were encountered — wrap the main sequence + forked cues into a Parallel
+            // so the sequence continues running alongside the forked cues
+            let allParallel =
+                if mainCue.IsFin 
+                then forkedCues
+                else FDeque.cons mainCue forkedCues
+            (Parallel allParallel, (signals, gameplay))
 
         | Parallel cues ->
             let stepParallel (remaining, (signals: Signal FDeque, gameplay)) cue =
                 let (cue, (signals2, gameplay)) = updateCue cue gameplay world
                 let signals = List.fold (fun acc s -> FDeque.conj s acc) signals signals2
-                if Cue.isFin cue
+                if cue.IsFin
                 then (remaining, (signals, gameplay))
                 else (FDeque.conj cue remaining, (signals, gameplay))
 
@@ -301,11 +365,10 @@ type GameplayDispatcher () =
 
         | StepCues ->
             let cue = gameplay.GameplayState.Cue
-            if Cue.isFin cue then just gameplay
-            else
-                let (cue, (signals, gameplay)) = updateCue cue gameplay world
-                let gameplay = { gameplay with Gameplay.GameplayState.Cue = cue }
-                withSignals signals gameplay
+            if cue.IsFin then just gameplay else
+            let (cue, (signals, gameplay)) = updateCue cue gameplay world
+            let gameplay = { gameplay with Gameplay.GameplayState.Cue = cue }
+            withSignals signals gameplay
 
     // here we handle the above commands
     override this.Command (gameplay, command, screen, world) =
@@ -486,6 +549,14 @@ type GameplayDispatcher () =
                               Entity.PositionLocal == v3 40f 3f 0f
                               Entity.Size == v3 256f 64f 0f
                               Entity.Text := text]]
+
+             // screen fade overlay
+             if gameplay.GameplayState.Fade > 0.0f then
+                 Content.staticSprite "ScreenFade"
+                     [Entity.Position == v3 0.0f 0.0f 0.0f
+                      Entity.Size == v3 640.0f 360.0f 0.0f
+                      Entity.Elevation == 100.0f
+                      Entity.Color := Color(0.0f, 0.0f, 0.0f, gameplay.GameplayState.Fade)]
 
              // quit
              Content.button Simulants.GameplayQuit.Name
