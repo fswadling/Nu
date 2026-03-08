@@ -11,7 +11,7 @@ type [<SymbolicExpansion>] GameplayState =
       Actors :CharacterProp array
       Exposition: Exposition option
       Cue : Cue
-      Advents : Advent HSet
+      Advents : Advent Set
       Fade : single
       AvatarMovementEnabled : bool
       CameraFollowEnabled : bool }
@@ -23,7 +23,7 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
-          Advents = HSet.makeEmpty ()
+          Advents = Set.empty
           Fade = 0.0f
           AvatarMovementEnabled = false
           CameraFollowEnabled = false }
@@ -34,14 +34,14 @@ module GameplayState =
           Actors = Array.empty
           Exposition = None
           Cue = Fin
-          Advents = HSet.makeEmpty ()
+          Advents = Set.empty
           Fade = 0.0f
           AvatarMovementEnabled = true
           CameraFollowEnabled = true }
 
 // this is our MMCC model type representing gameplay.
 // this model representation uses update time, that is, time based on number of engine updates.
-type Gameplay =
+type [<SymbolicExpansion>] Gameplay =
     { GameplayTime : int64
       GameplayState : GameplayState }
 
@@ -136,12 +136,12 @@ type GameplayDispatcher () =
             (Fin, just gameplay)
 
         | Cue.AddAdvent advent ->
-            let advents = HSet.add advent gameplay.GameplayState.Advents
+            let advents = Set.add advent gameplay.GameplayState.Advents
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
             (Fin, just gameplay)
 
         | Await advent ->
-            if HSet.contains advent gameplay.GameplayState.Advents
+            if Set.contains advent gameplay.GameplayState.Advents
             then (Fin, just gameplay)
             else (cue, just gameplay)
 
@@ -190,7 +190,7 @@ type GameplayDispatcher () =
             updateCue cue gameplay world
 
         | If (advent, thenCue, elseCue) ->
-            if HSet.contains advent gameplay.GameplayState.Advents
+            if Set.contains advent gameplay.GameplayState.Advents
             then updateCue thenCue gameplay world
             else updateCue elseCue gameplay world
 
