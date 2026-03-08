@@ -99,6 +99,39 @@ type GameplayDispatcher () =
     let animationRate = 30f
     let blendRate = 0.05f
 
+    let updateAnimation (animationName: string) (newWeight: single) (rate: single) (gameTime: GameTime) (animations: Animation array) : Animation array =
+        let animation = Array.tryFind (fun a -> a.Name = animationName) animations
+        match animation, newWeight with
+        | Some _, 0.0f ->
+            Array.filter (fun a -> a.Name <> animationName) animations
+        | Some animation, _ ->
+            let animation = { animation with Weight = newWeight }
+            animations |> Array.map (fun a -> if a.Name = animationName then animation else a)
+        | None, 0.0f ->
+            animations
+        | None, _ ->
+            let animation = Animation.make gameTime None animationName Playback.Loop rate newWeight None
+            Array.add animation animations
+
+    let updateMorph (newWeight: single) (morphIndex: int) (morphs: (int * single) array) =
+        let hasMorph = Array.exists (fun (i, _) -> i = morphIndex) morphs
+        match hasMorph, newWeight with
+        | true, 0.0f ->
+            Array.filter (fun (i, _) -> i <> morphIndex) morphs
+        | true, _ ->
+            Array.map (fun (i, weight) -> if i = morphIndex then (i, newWeight) else (i, weight)) morphs
+        | false, 0.0f ->
+            morphs
+        | false, _ ->
+            Array.add (morphIndex, newWeight) morphs
+
+    let updateActorProp (character: Character) (f: CharacterProp -> CharacterProp) (gameplay: Gameplay) =
+        let actors = gameplay.GameplayState.Actors |> Array.map (fun a -> if a.Character = character then f a else a)
+        { gameplay with Gameplay.GameplayState.Actors = actors }
+
+    let getActorProp (character: Character) (gameplay: Gameplay) =
+        Array.tryFind (fun (a: CharacterProp) -> a.Character = character) gameplay.GameplayState.Actors
+
     // recursively process a cue until it blocks or finishes, following OmniBlade's pattern.
     // returns the updated cue and (signals, gameplay).
     let rec updateCue (cue: Cue) (gameplay: Gameplay) (world: World) : Cue * (Signal list * Gameplay) =
@@ -140,6 +173,109 @@ type GameplayDispatcher () =
             match gameplay.GameplayState.Exposition with
             | None -> (Fin, just gameplay)
             | Some _ -> (cue, just gameplay)
+
+        | Cue.Animate (character, animationName, targetWeight, duration) ->
+            let initialWeight =
+                match getActorProp character gameplay with
+                | Some actor ->
+                    actor.Animations |>
+                    Array.tryFind (fun a -> a.Name = animationName) |>
+                    Option.map (fun a -> a.Weight) |>
+                    Option.defaultValue 0.0f
+                | None -> 0.0f
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (AnimateState (character, animationName, initialWeight, targetWeight, startTime, endTime), just gameplay)
+
+        | AnimateState (character, animationName, initialWeight, targetWeight, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = updateActorProp character (fun a -> { a with Animations = updateAnimation animationName targetWeight animationRate world.GameTime a.Animations }) gameplay
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let currentWeight = initialWeight + t * (targetWeight - initialWeight)
+            let gameplay = updateActorProp character (fun a -> { a with Animations = updateAnimation animationName currentWeight animationRate world.GameTime a.Animations }) gameplay
+            (cue, just gameplay)
+
+        | Cue.CrossFade (character, fromAnimation, toAnimation, targetWeight, duration) ->
+            let actor = getActorProp character gameplay
+            let initialFromWeight =
+                actor |> Option.bind (fun a -> Array.tryFind (fun (anim: Animation) -> anim.Name = fromAnimation) a.Animations) |>
+                Option.map (fun a -> a.Weight) |> Option.defaultValue 0.0f
+            let initialToWeight =
+                actor |> Option.bind (fun a -> Array.tryFind (fun (anim: Animation) -> anim.Name = toAnimation) a.Animations) |>
+                Option.map (fun a -> a.Weight) |> Option.defaultValue 0.0f
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (CrossFadeState (character, fromAnimation, toAnimation, initialFromWeight, initialToWeight, targetWeight, startTime, endTime), just gameplay)
+
+        | CrossFadeState (character, fromAnimation, toAnimation, initialFromWeight, initialToWeight, targetWeight, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = updateActorProp character (fun a ->
+                    let anims = updateAnimation fromAnimation 0.0f animationRate world.GameTime a.Animations
+                    let anims = updateAnimation toAnimation targetWeight animationRate world.GameTime anims
+                    { a with Animations = anims }) gameplay
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let currentFromWeight = initialFromWeight + t * (0.0f - initialFromWeight)
+            let currentToWeight = initialToWeight + t * (targetWeight - initialToWeight)
+            let gameplay = updateActorProp character (fun a ->
+                let anims = updateAnimation fromAnimation currentFromWeight animationRate world.GameTime a.Animations
+                let anims = updateAnimation toAnimation currentToWeight animationRate world.GameTime anims
+                { a with Animations = anims }) gameplay
+            (cue, just gameplay)
+
+        | Cue.Morph (character, morphIndex, targetWeight, duration) ->
+            let initialWeight =
+                match getActorProp character gameplay with
+                | Some actor ->
+                    actor.Morphs |>
+                    Array.tryPick (fun (i, w) -> if i = morphIndex then Some w else None) |>
+                    Option.defaultValue 0.0f
+                | None -> 0.0f
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (MorphState (character, morphIndex, initialWeight, targetWeight, startTime, endTime), just gameplay)
+
+        | MorphState (character, morphIndex, initialWeight, targetWeight, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = updateActorProp character (fun a -> { a with Morphs = updateMorph targetWeight morphIndex a.Morphs }) gameplay
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let currentWeight = initialWeight + t * (targetWeight - initialWeight)
+            let gameplay = updateActorProp character (fun a -> { a with Morphs = updateMorph currentWeight morphIndex a.Morphs }) gameplay
+            (cue, just gameplay)
+
+        | Cue.CrossMorph (character, fromMorphIndex, toMorphIndex, targetWeight, duration) ->
+            let actor = getActorProp character gameplay
+            let initialFromWeight =
+                actor |> Option.bind (fun a -> Array.tryPick (fun (i, w) -> if i = fromMorphIndex then Some w else None) a.Morphs) |>
+                Option.defaultValue 0.0f
+            let initialToWeight =
+                actor |> Option.bind (fun a -> Array.tryPick (fun (i, w) -> if i = toMorphIndex then Some w else None) a.Morphs) |>
+                Option.defaultValue 0.0f
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (CrossMorphState (character, fromMorphIndex, toMorphIndex, initialFromWeight, initialToWeight, targetWeight, startTime, endTime), just gameplay)
+
+        | CrossMorphState (character, fromMorphIndex, toMorphIndex, initialFromWeight, initialToWeight, targetWeight, startTime, endTime) ->
+            if world.GameTime >= endTime then
+                let gameplay = updateActorProp character (fun a ->
+                    let morphs = updateMorph 0.0f fromMorphIndex a.Morphs
+                    let morphs = updateMorph targetWeight toMorphIndex morphs
+                    { a with Morphs = morphs }) gameplay
+                (Fin, just gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let currentFromWeight = initialFromWeight + t * (0.0f - initialFromWeight)
+            let currentToWeight = initialToWeight + t * (targetWeight - initialToWeight)
+            let gameplay = updateActorProp character (fun a ->
+                let morphs = updateMorph currentFromWeight fromMorphIndex a.Morphs
+                let morphs = updateMorph currentToWeight toMorphIndex morphs
+                { a with Morphs = morphs }) gameplay
+            (cue, just gameplay)
 
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
