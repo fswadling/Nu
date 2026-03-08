@@ -26,3 +26,4 @@ type Cue =
     | Parallel of Cue FDeque
     | Fork of Cue
     | If of Advent * Then:Cue * Else:Cue
+    | Await of Advent

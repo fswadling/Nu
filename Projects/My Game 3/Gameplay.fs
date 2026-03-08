@@ -140,6 +140,11 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
             (Fin, just gameplay)
 
+        | Await advent ->
+            if HSet.contains advent gameplay.GameplayState.Advents
+            then (Fin, just gameplay)
+            else (cue, just gameplay)
+
         | Wait duration ->
             let endTime = world.GameTime + GameTime.ofSeconds (double duration)
             (WaitState endTime, just gameplay)
