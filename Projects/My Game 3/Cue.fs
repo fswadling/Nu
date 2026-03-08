@@ -14,6 +14,10 @@ type Cue =
     | RemoveActor of Character:Character
     | Exposit of Text:string * Variant:ExpositVariant
     | AddAdvent of Advent
+    | EnableCameraFollow
+    | DisableCameraFollow
+    | EnableAvatarMovement
+    | DisableAvatarMovement
     // === Time-based ops ===
     | Wait of Duration:single
     | WaitState of EndTime:GameTime

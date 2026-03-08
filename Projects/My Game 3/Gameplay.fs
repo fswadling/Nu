@@ -140,6 +140,22 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
             (Fin, just gameplay)
 
+        | EnableCameraFollow ->
+            let gameplay = { gameplay with Gameplay.GameplayState.CameraFollowEnabled = true }
+            (Fin, just gameplay)
+
+        | DisableCameraFollow ->
+            let gameplay = { gameplay with Gameplay.GameplayState.CameraFollowEnabled = false }
+            (Fin, just gameplay)
+
+        | EnableAvatarMovement ->
+            let gameplay = { gameplay with Gameplay.GameplayState.AvatarMovementEnabled = true }
+            (Fin, just gameplay)
+
+        | DisableAvatarMovement ->
+            let gameplay = { gameplay with Gameplay.GameplayState.AvatarMovementEnabled = false }
+            (Fin, just gameplay)
+
         | Await advent ->
             if Set.contains advent gameplay.GameplayState.Advents
             then (Fin, just gameplay)
