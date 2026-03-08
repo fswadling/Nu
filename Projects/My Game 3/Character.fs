@@ -59,9 +59,3 @@ module Character =
         [| if idleWeight > 0.0f then updateOrCreate idleAnimation idleWeight currentAnimations character
            if jogWeight > 0.0f then updateOrCreate jogAnimation jogWeight currentAnimations character |]
 
-type [<SymbolicExpansion>] AnimatedProp =
-    { Position: Vector3
-      Rotation: Quaternion
-      Animations: Animation array
-      Morphs : (int * single) array }
-

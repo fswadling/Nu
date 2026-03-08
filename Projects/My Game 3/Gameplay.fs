@@ -4,6 +4,12 @@ open Prime
 open Nu
 open MyGame3
 
+type [<SymbolicExpansion>] AnimatedProp =
+    { Position: Vector3
+      Rotation: Quaternion
+      Animations: Animation array
+      Morphs : (int * single) array }
+
 // this represents the state of gameplay simulation.
 type [<SymbolicExpansion>] GameplayState =
     { Zone: Zone
