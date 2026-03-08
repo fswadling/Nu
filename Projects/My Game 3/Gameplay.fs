@@ -7,8 +7,8 @@ open MyGame3
 // this represents the state of gameplay simulation.
 type [<SymbolicExpansion>] GameplayState =
     { Zone: Zone
-      Avatar : CharacterProp option
-      Actors :CharacterProp array
+      Avatar : (Character * AnimatedProp) option
+      Actors : Map<Character, AnimatedProp>
       Exposition: Exposition option
       Cue : Cue
       Advents : Advent Set
@@ -20,7 +20,7 @@ module GameplayState =
     let empty =
         { Zone = NoZone
           Avatar = None
-          Actors = Array.empty
+          Actors = Map.empty
           Exposition = None
           Cue = Fin
           Advents = Set.empty
@@ -31,7 +31,7 @@ module GameplayState =
     let initial =
         { Zone = PlayerApartment
           Avatar = None
-          Actors = Array.empty
+          Actors = Map.empty
           Exposition = None
           Cue = Fin
           Advents = Set.empty
@@ -125,12 +125,12 @@ type GameplayDispatcher () =
         | false, _ ->
             Array.add (morphIndex, newWeight) morphs
 
-    let updateActorProp (character: Character) (f: CharacterProp -> CharacterProp) (gameplay: Gameplay) =
-        let actors = gameplay.GameplayState.Actors |> Array.map (fun a -> if a.Character = character then f a else a)
+    let updateActorProp (character: Character) (f: AnimatedProp -> AnimatedProp) (gameplay: Gameplay) =
+        let actors = gameplay.GameplayState.Actors |> Map.change character (Option.map f)
         { gameplay with Gameplay.GameplayState.Actors = actors }
 
     let getActorProp (character: Character) (gameplay: Gameplay) =
-        Array.tryFind (fun (a: CharacterProp) -> a.Character = character) gameplay.GameplayState.Actors
+        Map.tryFind character gameplay.GameplayState.Actors
 
     // recursively process a cue until it blocks or finishes, following OmniBlade's pattern.
     // returns the updated cue and (signals, gameplay).
@@ -150,17 +150,16 @@ type GameplayDispatcher () =
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop 30f 1.0f None
             let actor =
-                { Character = character
-                  Position = position
+                { Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
-            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let actors = Map.add character actor gameplay.GameplayState.Actors
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             (Fin, just gameplay)
 
         | Cue.RemoveActor character ->
-            let actors = Array.filter (fun a -> a.Character <> character) gameplay.GameplayState.Actors
+            let actors = Map.remove character gameplay.GameplayState.Actors
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             (Fin, just gameplay)
 
@@ -200,11 +199,17 @@ type GameplayDispatcher () =
         | Cue.CrossFade (character, fromAnimation, toAnimation, targetWeight, duration) ->
             let actor = getActorProp character gameplay
             let initialFromWeight =
-                actor |> Option.bind (fun a -> Array.tryFind (fun (anim: Animation) -> anim.Name = fromAnimation) a.Animations) |>
-                Option.map (fun a -> a.Weight) |> Option.defaultValue 0.0f
+                actor |>
+                Option.map _.Animations |>
+                Option.bind (Array.tryFind (fun (anim: Animation) -> anim.Name = fromAnimation)) |>
+                Option.map _.Weight |> 
+                Option.defaultValue 0.0f
             let initialToWeight =
-                actor |> Option.bind (fun a -> Array.tryFind (fun (anim: Animation) -> anim.Name = toAnimation) a.Animations) |>
-                Option.map (fun a -> a.Weight) |> Option.defaultValue 0.0f
+                actor |>
+                Option.map _.Animations |>
+                Option.bind (Array.tryFind (fun (anim: Animation) -> anim.Name = toAnimation)) |>
+                Option.map _.Weight |>
+                Option.defaultValue 0.0f
             let startTime = world.GameTime
             let endTime = startTime + GameTime.ofSeconds (double duration)
             (CrossFadeState (character, fromAnimation, toAnimation, initialFromWeight, initialToWeight, targetWeight, startTime, endTime), just gameplay)
@@ -457,10 +462,10 @@ type GameplayDispatcher () =
          Game.KeyboardKeyDownEvent =|> fun data ->
             if data.Data.KeyboardKey = KeyboardKey.E then AdvanceExposition else Nil
          Simulants.GameplayAvatar.BodyTransformEvent =|> (fun x -> AvatarPhysicsUpdate x.Data)
-         for actor in gameplay.GameplayState.Actors do
-            let name = Character.toName actor.Character
+         for KeyValue (character, _) in gameplay.GameplayState.Actors do
+            let name = Character.toName character
             let entity = Simulants.GameplayScene / name
-            entity.BodyTransformEvent =|> fun evt -> ActorPhysicsUpdate (actor.Character, evt.Data)]
+            entity.BodyTransformEvent =|> fun evt -> ActorPhysicsUpdate (character, evt.Data)]
 
     // here we handle the above messages
     override this.Message (gameplay, message, _, world) =
@@ -472,32 +477,29 @@ type GameplayDispatcher () =
             let position = startWaypoint.GetPosition world
             let rotation = startWaypoint.GetRotation world
             let player =
-                { Character = Player
-                  Position = position
+                { Position = position
                   Rotation = rotation
                   Animations = Array.empty
                   Morphs = Array.empty }
 
-            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some player }
+            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some (Player, player) }
             withSignal (WarpAvatar (position, rotation)) gameplay
 
         | AvatarPhysicsUpdate data ->
             match gameplay.GameplayState.Avatar with
             | None -> just gameplay
-            | Some avatar ->
+            | Some (character, avatar) ->
             let avatar =
                 { avatar with
                     Position = data.BodyCenter
                     Rotation = data.BodyRotation }
-            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some avatar }
+            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some (character, avatar) }
             just gameplay
 
         | ActorPhysicsUpdate (character, data) ->
             let actors =
-                gameplay.GameplayState.Actors |> Array.map (fun a ->
-                    if a.Character = character
-                    then { a with Position = data.BodyCenter; Rotation = data.BodyRotation }
-                    else a)
+                gameplay.GameplayState.Actors |> Map.change character (Option.map (fun a ->
+                    { a with Position = data.BodyCenter; Rotation = data.BodyRotation }))
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
@@ -518,12 +520,11 @@ type GameplayDispatcher () =
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
             let actor =
-                { Character = character
-                  Position = position
+                { Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
-            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let actors = Map.add character actor gameplay.GameplayState.Actors
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
@@ -531,17 +532,16 @@ type GameplayDispatcher () =
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
             let actor =
-                { Character = character
-                  Position = position
+                { Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
-            let actors = Array.append gameplay.GameplayState.Actors [|actor|]
+            let actors = Map.add character actor gameplay.GameplayState.Actors
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
         | RemoveActor character ->
-            let actors = Array.filter (fun a -> a.Character <> character) gameplay.GameplayState.Actors
+            let actors = Map.remove character gameplay.GameplayState.Actors
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
@@ -575,7 +575,7 @@ type GameplayDispatcher () =
         | CameraFollow ->
             match gameplay.GameplayState.Avatar with
             | None -> just gameplay
-            | Some avatar ->
+            | Some (_, avatar) ->
             let rotation = avatar.Rotation
             let cameraRotation = rotation * Quaternion.CreateFromAxisAngle (v3Up, float32 Math.PI_MINUS_EPSILON)
             let position = avatar.Position + v3Up * 1.40f - cameraRotation.Forward
@@ -595,7 +595,7 @@ type GameplayDispatcher () =
         | ProcessAvatarInput ->
             match gameplay.GameplayState.Avatar with
             | None -> ()
-            | Some avatar ->
+            | Some (avatarCharacter, avatar) ->
 
             let bodyId = Simulants.GameplayAvatar.GetBodyId world
             let rotation = avatar.Rotation
@@ -627,9 +627,9 @@ type GameplayDispatcher () =
 
             // update animations in the model
             let isMoving = walkDirection.LengthSquared() > 1e-6f || abs turnInput > 0.0f
-            let animations = Character.locomotionAnimations isMoving blendRate animationRate world.GameTime avatar.Animations avatar.Character
+            let animations = Character.locomotionAnimations isMoving blendRate animationRate world.GameTime avatar.Animations avatarCharacter
             let avatar = { avatar with Animations = animations }
-            let gameplayState = { gameplay.GameplayState with Avatar = Some avatar }
+            let gameplayState = { gameplay.GameplayState with Avatar = Some (avatarCharacter, avatar) }
             do screen.SetGameplay { gameplay with GameplayState = gameplayState } world
 
         | SetCamera (position, rotation) ->
@@ -646,25 +646,24 @@ type GameplayDispatcher () =
             let gameplay =
                 match gameplay.GameplayState.Avatar with
                 | None -> gameplay
-                | Some avatar ->
+                | Some (character, avatar) ->
                 let position = Simulants.GameplayAvatar.GetPosition world
                 let rotation = Simulants.GameplayAvatar.GetRotation world
                 let bodyId = Simulants.GameplayAvatar.GetBodyId world
                 do World.setBodyCenter position bodyId world
                 do World.setBodyRotation rotation bodyId world
                 let avatar = { avatar with Position = position; Rotation = rotation }
-                { gameplay with Gameplay.GameplayState.Avatar = Some avatar }
+                { gameplay with Gameplay.GameplayState.Avatar = Some (character, avatar) }
 
             // sync actors
-            let syncActorFromEntity (world: World) (actor: CharacterProp) =
-                let name = Character.toName actor.Character
-                let entity = Simulants.GameplayScene / name
-                if not (entity.GetExists world) then actor else
-                let position = entity.GetPosition world
-                let rotation = entity.GetRotation world
-                { actor with Position = position; Rotation = rotation }
-
-            let actors = Array.map (syncActorFromEntity world) gameplay.GameplayState.Actors
+            let actors =
+                gameplay.GameplayState.Actors |> Map.map (fun character actor ->
+                    let name = Character.toName character
+                    let entity = Simulants.GameplayScene / name
+                    if not (entity.GetExists world) then actor else
+                    let position = entity.GetPosition world
+                    let rotation = entity.GetRotation world
+                    { actor with Position = position; Rotation = rotation })
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
         | _ -> just gameplay
@@ -681,8 +680,8 @@ type GameplayDispatcher () =
              [// avatar
               match gameplay.GameplayState.Avatar with
               | None -> ()
-              | Some avatarProp ->
-              let path = Character.toPath avatarProp.Character
+              | Some (avatarCharacter, avatarProp) ->
+              let path = Character.toPath avatarCharacter
               Content.entityFromFile Simulants.GameplayAvatar.Name path
                   [Entity.PhysicsMotion == PhysicsMotion.ManualMotion
                    Entity.Position := avatarProp.Position
@@ -691,10 +690,9 @@ type GameplayDispatcher () =
                    Entity.Morphs := avatarProp.Morphs]
 
               // actors
-              for actor in gameplay.GameplayState.Actors do
-                  let name = Character.toName actor.Character
-                  let path = Character.toPath actor.Character
-                  let character = actor.Character
+              for KeyValue (character, actor) in gameplay.GameplayState.Actors do
+                  let name = Character.toName character
+                  let path = Character.toPath character
                   Content.entityFromFile name path
                       [Entity.Position := actor.Position
                        Entity.Rotation := actor.Rotation
