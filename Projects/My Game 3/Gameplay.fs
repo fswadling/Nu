@@ -86,6 +86,7 @@ type GameplayCommand =
     | WarpAvatar of Position:Vector3 * Rotation:Quaternion
     | ProcessAvatarInput
     | SetCamera of Position:Vector3 * Rotation:Quaternion
+    | MoveActor of Character:Character * Position:Vector3 * Rotation:Quaternion
     interface Command
 
 // this extends the Screen API to expose the Gameplay model as well as the Quit event.
@@ -138,6 +139,23 @@ type GameplayDispatcher () =
 
     let getActorProp (character: Character) (gameplay: Gameplay) =
         Map.tryFind character gameplay.GameplayState.Actors
+
+    let interpolateBetweenAnimations (idle: string) (moving: string) (walkWeight: single) (rate: single) (gameTime: GameTime) (animations: Animation array) =
+        let idleWeight = 1.0f - walkWeight
+        animations |>
+        updateAnimation idle idleWeight rate gameTime |>
+        updateAnimation moving walkWeight rate gameTime
+
+    let getFullControlPointArray (startPos: Vector3) (path: Vector3 list) =
+        match path with
+        | [] -> Array.singleton startPos
+        | first :: _ when first = startPos -> Array.ofList path
+        | _ -> Array.ofList (startPos :: path)
+
+    let normalizeDir (dirRaw: Vector3) =
+        if dirRaw.LengthSquared() > 1e-6f
+        then Vector3.Normalize dirRaw
+        else Vector3.UnitZ
 
     // recursively process a cue until it blocks or finishes, following OmniBlade's pattern.
     // returns the updated cue and (signals, gameplay).
@@ -289,6 +307,68 @@ type GameplayDispatcher () =
                 let morphs = updateMorph currentToWeight toMorphIndex morphs
                 { a with Morphs = morphs }) gameplay
             (cue, just gameplay)
+
+        | Cue.MoveActor (character, path, speed, idle, moving) ->
+            let actor = getActorProp character gameplay
+            match actor with
+            | None -> (Fin, just gameplay)
+            | Some actor ->
+            let startPos = actor.Position
+            let initialRot = actor.Rotation
+            let pathEntity = Simulants.GameplayScene / path
+            let nodeData = pathEntity.GetNodePositionsAndRotations world
+            let pathPositions = nodeData |> List.map fst
+            let finalRot = nodeData |> List.last |> snd
+            let points = getFullControlPointArray startPos pathPositions
+            if points.Length < 2 || speed <= 0.0f then (Fin, just gameplay) else
+            let totalLength = Maths.approxSplineLength points 10
+            let durationSeconds = totalLength / speed
+            let walkBlendTime = min 0.25f (durationSeconds * 0.3f)
+            (MoveActorState (character, points, durationSeconds, world.GameTime, initialRot, finalRot, walkBlendTime, idle, moving), just gameplay)
+
+        | MoveActorState (character, points, durationSeconds, startTime, initialRot, finalRot, walkBlendTime, idle, moving) ->
+            match getActorProp character gameplay with
+            | None -> (Fin, just gameplay)
+            | Some _ ->
+            let elapsed = single (world.GameTime - startTime).Seconds
+            let t = elapsed / durationSeconds |> max 0.0f |> min 1.0f
+            let orientBlendFrac = 0.3f
+            let orientBlendStart = durationSeconds * (1.0f - orientBlendFrac)
+            let startOrientBlendTime = min 0.25f (durationSeconds * 0.3f)
+            if t >= 1.0f then
+                let finalPos = Maths.evalSpline points 1.0f
+                let gameplay = updateActorProp character (fun a ->
+                    let anims = interpolateBetweenAnimations idle moving 0.0f animationRate world.GameTime a.Animations
+                    { a with Animations = anims }) gameplay
+                (Fin, withSignal (MoveActor (character, finalPos, finalRot)) gameplay)
+            else
+            let pos = Maths.evalSpline points t
+            let tAhead = min 1.0f (t + 0.01f)
+            let posAhead = Maths.evalSpline points tAhead
+            let pathDir = normalizeDir (-(posAhead - pos))
+            let pathRot = Maths.lookRotation pathDir
+            let rotAfterStart =
+                if startOrientBlendTime > 0.0f && elapsed < startOrientBlendTime then
+                    let s = elapsed / startOrientBlendTime |> max 0.0f |> min 1.0f
+                    Quaternion.Slerp(initialRot, pathRot, s)
+                else pathRot
+            let rot =
+                let blendParam =
+                    if elapsed <= orientBlendStart then 0.0f
+                    elif elapsed >= durationSeconds then 1.0f
+                    else (elapsed - orientBlendStart) / (durationSeconds - orientBlendStart)
+                let blendParam = blendParam |> max 0.0f |> min 1.0f
+                if blendParam <= 0.0f then rotAfterStart
+                else Quaternion.Slerp(rotAfterStart, finalRot, blendParam)
+            let walkWeight =
+                if elapsed < walkBlendTime then elapsed / walkBlendTime
+                elif elapsed > durationSeconds - walkBlendTime then (durationSeconds - elapsed) / walkBlendTime
+                else 1.0f
+                |> max 0.0f |> min 1.0f
+            let gameplay = updateActorProp character (fun a ->
+                let anims = interpolateBetweenAnimations idle moving walkWeight animationRate world.GameTime a.Animations
+                { a with Animations = anims }) gameplay
+            (cue, withSignal (MoveActor (character, pos, rot)) gameplay)
 
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
@@ -646,6 +726,21 @@ type GameplayDispatcher () =
         | SetCamera (position, rotation) ->
             do World.setEye3dCenter position world
             do World.setEye3dRotation rotation world
+
+        | MoveActor (character, position, rotation) ->
+            let name = Character.toName character
+            let entity = Simulants.GameplayScene / name
+            if entity.GetExists world then
+                let bodyId = entity.GetBodyId world
+                let currentPos = entity.GetPosition world
+                let deltaTime = world.GameDelta.SecondsF
+                let velocity =
+                    if deltaTime > 0.0f
+                    then (position - currentPos) / deltaTime
+                    else v3Zero
+                let currentLinearVelocity = World.getBodyLinearVelocity bodyId world
+                do World.setBodyLinearVelocity (velocity.WithY 0.0f + currentLinearVelocity * v3Up) bodyId world
+                do World.setBodyRotation rotation bodyId world
 
     
 

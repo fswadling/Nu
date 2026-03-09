@@ -37,6 +37,8 @@ type Cue =
     | MorphState of Character:Character * MorphIndex:int * InitialWeight:single * TargetWeight:single * StartTime:GameTime * EndTime:GameTime
     | CrossMorph of Character:Character * From:int * To:int * TargetWeight:single * Duration:single
     | CrossMorphState of Character:Character * From:int * To:int * InitialFromWeight:single * InitialToWeight:single * TargetWeight:single * StartTime:GameTime * EndTime:GameTime
+    | MoveActor of Character:Character * Path:string * Speed:single * Idle:string * Moving:string
+    | MoveActorState of Character:Character * Points:Vector3 array * DurationSeconds:single * StartTime:GameTime * InitialRot:Quaternion * FinalRot:Quaternion * WalkBlendTime:single * Idle:string * Moving:string
     // === Control flow ===
     | Sequence of Cue FDeque
     | Parallel of Cue FDeque
