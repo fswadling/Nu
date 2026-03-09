@@ -19,6 +19,7 @@ type Cue =
     | EnableAvatarMovement
     | DisableAvatarMovement
     | SwitchZone of Zone:Zone
+    | WarpAvatar of SpawnPoint:string
     // === Time-based ops ===
     | Wait of Duration:single
     | WaitState of EndTime:GameTime

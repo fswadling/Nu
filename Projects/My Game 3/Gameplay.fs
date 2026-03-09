@@ -399,6 +399,17 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Zone = zone; Gameplay.GameplayState.Avatar = None }
             (Fin, just gameplay)
 
+        | Cue.WarpAvatar spawnPoint ->
+            let waypoint = Simulants.GameplayScene / spawnPoint
+            let position = waypoint.GetPosition world
+            let rotation = waypoint.GetRotation world
+            match gameplay.GameplayState.Avatar with
+            | None -> (Fin, just gameplay)
+            | Some (character, avatar) ->
+            let avatar = { avatar with Position = position; Rotation = rotation }
+            let gameplay = { gameplay with Gameplay.GameplayState.Avatar = Some (character, avatar) }
+            (Fin, withSignal (GameplayCommand.WarpAvatar (position, rotation)) gameplay)
+
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
