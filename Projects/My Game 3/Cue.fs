@@ -18,6 +18,7 @@ type Cue =
     | DisableCameraFollow
     | EnableAvatarMovement
     | DisableAvatarMovement
+    | SwitchZone of Zone:Zone
     // === Time-based ops ===
     | Wait of Duration:single
     | WaitState of EndTime:GameTime

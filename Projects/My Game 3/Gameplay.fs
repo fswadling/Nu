@@ -395,6 +395,10 @@ type GameplayDispatcher () =
             let rot = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw)
             (cue, withSignal (MoveActor (character, actor.Position, rot)) gameplay)
 
+        | SwitchZone zone ->
+            let gameplay = { gameplay with Gameplay.GameplayState.Zone = zone; Gameplay.GameplayState.Avatar = None }
+            (Fin, just gameplay)
+
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }
