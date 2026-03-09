@@ -5,7 +5,8 @@ open Nu
 open MyGame3
 
 type [<SymbolicExpansion>] AnimatedProp =
-    { Position: Vector3
+    { Zone: Zone
+      Position: Vector3
       Rotation: Quaternion
       Animations: Animation array
       Morphs : (int * single) array }
@@ -66,12 +67,12 @@ type GameplayMessage =
     | Nil
     | StartPlaying
     | TimeUpdate
-    | AvatarPhysicsUpdate of BodyTransformData
-    | ActorPhysicsUpdate of Character * BodyTransformData
-    | AddActor of Character * Position:Vector3 * Rotation:Quaternion
-    | AddActorAtStart of Character
-    | RemoveActor of Character
-    | ShowExposition of Text:string * ExpositVariant
+    | AvatarPhysicsUpdate of BodyTransformData:BodyTransformData
+    | ActorPhysicsUpdate of Character:Character * BodyTransformData:BodyTransformData
+    | AddActor of Character:Character * Zone:Zone * Position:Vector3 * Rotation:Quaternion
+    | AddActorAtStart of Character:Character
+    | RemoveActor of Character:Character
+    | ShowExposition of Text:string * ExpositVariant:ExpositVariant
     | AdvanceExposition
     | UpdateExposition
     | RunCue of Cue
@@ -149,14 +150,15 @@ type GameplayDispatcher () =
             printfn "[Cue] %s" text
             (Fin, just gameplay)
 
-        | Cue.AddActor (character, spawnPoint) ->
+        | Cue.AddActor (character, zone, spawnPoint) ->
             let waypoint = Simulants.GameplayScene / spawnPoint
             let position = waypoint.GetPosition world
             let rotation = waypoint.GetRotation world
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop 30f 1.0f None
             let actor =
-                { Position = position
+                { Zone = zone
+                  Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
@@ -483,7 +485,8 @@ type GameplayDispatcher () =
             let position = startWaypoint.GetPosition world
             let rotation = startWaypoint.GetRotation world
             let player =
-                { Position = position
+                { Zone = PlayerApartment
+                  Position = position
                   Rotation = rotation
                   Animations = Array.empty
                   Morphs = Array.empty }
@@ -526,7 +529,8 @@ type GameplayDispatcher () =
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
             let actor =
-                { Position = position
+                { Zone = PlayerApartment
+                  Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
@@ -534,11 +538,12 @@ type GameplayDispatcher () =
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
 
-        | AddActor (character, position, rotation) ->
+        | AddActor (character, zone, position, rotation) ->
             let idle = Character.idle character
             let idle = Animation.make world.GameTime None idle Playback.Loop animationRate 1.0f None
             let actor =
-                { Position = position
+                { Zone = zone
+                  Position = position
                   Rotation = rotation
                   Animations = Array.singleton idle
                   Morphs = Array.empty }
@@ -663,13 +668,15 @@ type GameplayDispatcher () =
 
             // sync actors
             let actors =
-                gameplay.GameplayState.Actors |> Map.map (fun character actor ->
-                    let name = Character.toName character
-                    let entity = Simulants.GameplayScene / name
-                    if not (entity.GetExists world) then actor else
-                    let position = entity.GetPosition world
-                    let rotation = entity.GetRotation world
-                    { actor with Position = position; Rotation = rotation })
+                let syncActor (character: Character) (actor: AnimatedProp) =
+                     let name = Character.toName character
+                     let entity = Simulants.GameplayScene / name
+                     if not (entity.GetExists world) then actor else
+                     let position = entity.GetPosition world
+                     let rotation = entity.GetRotation world
+                     { actor with Position = position; Rotation = rotation }
+                Map.map syncActor gameplay.GameplayState.Actors
+
             let gameplay = { gameplay with Gameplay.GameplayState.Actors = actors }
             just gameplay
         | _ -> just gameplay
@@ -696,15 +703,16 @@ type GameplayDispatcher () =
                    Entity.Morphs := avatarProp.Morphs]
 
               // actors
-              for KeyValue (character, actor) in gameplay.GameplayState.Actors do
+              for KeyValue (character, prop) in gameplay.GameplayState.Actors do
+                  if prop.Zone <> gameplay.GameplayState.Zone then () else
                   let name = Character.toName character
                   let path = Character.toPath character
                   Content.entityFromFile name path
-                      [Entity.Position := actor.Position
-                       Entity.Rotation := actor.Rotation
-                       Entity.Animations := actor.Animations
+                      [Entity.Position := prop.Position
+                       Entity.Rotation := prop.Rotation
+                       Entity.Animations := prop.Animations
                        Entity.PhysicsMotion == PhysicsMotion.ManualMotion
-                       Entity.Morphs := actor.Morphs
+                       Entity.Morphs := prop.Morphs
                        Entity.BodyTransformEvent =|> fun evt -> ActorPhysicsUpdate (character, evt.Data)]]
 
          Content.group Simulants.GameplayGui.Name []
@@ -793,5 +801,5 @@ type GameplayDispatcher () =
                     [Print "Cue started!"
                      Exposit ("A cue is running...", Thought)
                      Wait 3.0f
-                     Cue.AddActor (Akane, "Start")
+                     Cue.AddActor (Akane, PlayerApartment, "Start")
                      Print "Cue finished!"]))]]]

@@ -11,7 +11,7 @@ type Cue =
     | Fin
     // === Instant ops ===
     | Print of string
-    | AddActor of Character:Character * SpawnPoint:string
+    | AddActor of Character:Character * Zone:Zone * SpawnPoint:string
     | RemoveActor of Character:Character
     | AddAdvent of Advent
     | EnableCameraFollow
