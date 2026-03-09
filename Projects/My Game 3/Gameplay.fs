@@ -370,6 +370,31 @@ type GameplayDispatcher () =
                 { a with Animations = anims }) gameplay
             (cue, withSignal (MoveActor (character, pos, rot)) gameplay)
 
+        | Cue.RotateActor (character, target, duration) ->
+            match getActorProp character gameplay with
+            | None -> (Fin, just gameplay)
+            | Some actor ->
+            let targetEntity = Simulants.GameplayScene / target
+            let targetRotation = targetEntity.GetRotation world
+            let initialYaw = Maths.yawFromQuaternion actor.Rotation
+            let targetYaw = Maths.yawFromQuaternion targetRotation
+            let startTime = world.GameTime
+            let endTime = startTime + GameTime.ofSeconds (double duration)
+            (RotateActorState (character, initialYaw, targetYaw, startTime, endTime), just gameplay)
+
+        | RotateActorState (character, initialYaw, targetYaw, startTime, endTime) ->
+            match getActorProp character gameplay with
+            | None -> (Fin, just gameplay)
+            | Some actor ->
+            if world.GameTime >= endTime then
+                let rot = Quaternion.CreateFromAxisAngle(Vector3.UnitY, targetYaw)
+                (Fin, withSignal (MoveActor (character, actor.Position, rot)) gameplay)
+            else
+            let t = single ((world.GameTime - startTime).Seconds / (endTime - startTime).Seconds)
+            let yaw = Maths.lerpAngle initialYaw targetYaw t
+            let rot = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw)
+            (cue, withSignal (MoveActor (character, actor.Position, rot)) gameplay)
+
         | Cue.AddAdvent advent ->
             let advents = Set.add advent gameplay.GameplayState.Advents
             let gameplay = { gameplay with Gameplay.GameplayState.Advents = advents }

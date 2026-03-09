@@ -56,6 +56,17 @@ module Maths =
             prev <- p
         acc
 
+    let yawFromQuaternion (q: Quaternion) =
+        atan2 (2.0f * (q.Y * q.W + q.X * q.Z)) (1.0f - 2.0f * (q.X * q.X + q.Y * q.Y))
+
+    let lerpAngle (a: single) (b: single) (t: single) =
+        let pi = single System.Math.PI
+        let twoPi = 2.0f * pi
+        let mutable diff = (b - a) % twoPi
+        if diff > pi then diff <- diff - twoPi
+        elif diff < -pi then diff <- diff + twoPi
+        a + diff * t
+
     let lookRotation (dir: Vector3) =
         let dirNorm =
             if dir.LengthSquared() < 1e-6f 
